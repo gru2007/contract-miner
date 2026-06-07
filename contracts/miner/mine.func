@@ -1,13 +1,14 @@
 int ufits(int x, int bits) impure asm "UFITSX";
 
 const int mine::reward_amount = 100000000;
+const int mine::min_msg_value = 190000000;
 
 ;; thanks gusarich airdrop
-() send_tokens(slice recipient, int amount) impure {
+() send_tokens(slice recipient, int amount, int ton_amount) impure {
     send_raw_message(begin_cell()
         .store_uint(0x18, 6)
         .store_slice(storage::jwall_addr)
-        .store_coins(0)
+        .store_coins(ton_amount)
         .store_uint(1, 107)
         .store_ref(begin_cell()
             .store_uint(0x0f8a7ea5, 32) ;; jetton transfer
@@ -19,10 +20,11 @@ const int mine::reward_amount = 100000000;
             .store_coins(0)
             .store_uint(0, 1)
         .end_cell())
-    .end_cell(), 64);
+    .end_cell(), 0);
 }
 
-() handle_int::mine(slice cs, slice sender_addr, int body_hash) impure inline_ref {
+() handle_int::mine(slice cs, slice sender_addr, int body_hash, int msg_value) impure inline_ref {
+    throw_unless(err::not_enough_mine_gas(), msg_value >= mine::min_msg_value);
     throw_unless(err::pow_not_solved(), body_hash < storage::pow_complexity);
 
     ;; op was already consumed by recv_internal; flags and whom are currently unused.
@@ -67,9 +69,11 @@ const int mine::reward_amount = 100000000;
     storage::seed = random() >> 128;
     storage::last_success = now();
 
+    int keep_amount = msg_value / 10;
+
     commit();
 
-    send_tokens(sender_addr, mine::reward_amount);
+    send_tokens(sender_addr, mine::reward_amount, msg_value - keep_amount);
 
     storage::exit_save();
 }

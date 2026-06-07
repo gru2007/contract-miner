@@ -114,15 +114,17 @@ PROGRAM{
     NEWC
     32 STU
     64 STU
-    s0 s3 XCHG2
+    s0 s4 XCHG2
     STGRAMS
-    s3 PUSH
+    s4 PUSH
     STSLICER
-    s0 s3 XCHG2
+    s0 s4 XCHG2
     STSLICER
+    s1 s2 XCHG
     1 STU
-    OVER
+    s2 PUSH
     STGRAMS
+    s1 s2 XCHG
     1 STU
     ENDC
     1 PUSHINT
@@ -131,21 +133,28 @@ PROGRAM{
     6 STU
     storage::jwall_addr GETGLOB
     STSLICER
-    0 PUSHINT
+    s0 s3 XCHG2
     STGRAMS
+    s1 s2 XCHG
     107 STU
     STREF
     ENDC
-    64 PUSHINT
+    0 PUSHINT
     SENDRAWMSG
   }>
   handle_int::mine PROCREF:<{
+    2003 PUSHINT
+    OVER
+    190000000 PUSHINT
+    GEQ
+    THROWANYIFNOT
     2001 PUSHINT
     storage::pow_complexity GETGLOB
-    s1 s2 XCHG
+    s1 s3 XCHG
     LESS
+    s1 s2 XCHG
     THROWANYIFNOT
-    SWAP
+    s0 s2 XCHG
     8 LDI
     NIP
     32 LDU
@@ -205,8 +214,15 @@ PROGRAM{
     storage::seed SETGLOB
     NOW
     storage::last_success SETGLOB
+    OVER
+    10 PUSHINT
+    DIV
     COMMIT
+    s0 s2 XCHG
     100000000 PUSHINT
+    s0 s3 XCHG
+    SUB
+    s1 s2 XCHG
     send_tokens CALLDICT
     storage::exit_save INLINECALLDICT
   }>
@@ -283,14 +299,13 @@ PROGRAM{
   }>
   recv_internal PROC:<{
     s3 POP
-    NIP
     CTOS
     4 LDU
     SWAP
     1 PUSHINT
     AND
     IFJMP:<{
-      2DROP
+      3 BLKDROP
     }>
     LDMSGADDR
     DROP
@@ -298,14 +313,14 @@ PROGRAM{
     OVER
     extlib::basechsmpl_addr? INLINECALLDICT
     THROWANYIFNOT
-    OVER
+    s2 PUSH
     SEMPTY
     IFJMP:<{
-      2DROP
+      3 BLKDROP
     }>
-    OVER
+    s2 PUSH
     HASHSU
-    s0 s2 XCHG
+    s0 s3 XCHG
     32 LDU
     storage::load INLINECALLDICT
     0x4d696e65 PUSHINT
@@ -313,33 +328,33 @@ PROGRAM{
     EQUAL
     IFJMP:<{
       NIP
-      s0 s2 XCHG
+      s1 s3 s3 XCHG3
       handle_int::mine INLINECALLDICT
     }>
     s3 POP
+    s3 POP
     0x7362d09c PUSHINT
-    s1 s(-1) PUXC
+    s3 s(-1) PUXC
     EQUAL
     IFJMP:<{
-      DROP
-      NIP
+      2 1 BLKDROP2
       handle_int::transfer_notification INLINECALLDICT
     }>
     100 PUSHINT
-    s1 s(-1) PUXC
+    s3 s(-1) PUXC
     EQUAL
     IFJMP:<{
-      DROP
+      1 2 BLKDROP2
       handle_int::change_settings INLINECALLDICT
     }>
-    DUP
+    s2 PUSH
     621336170 PUSHINT
     EQUAL
     IFJMP:<{
-      DROP
+      1 2 BLKDROP2
       handle_int::update INLINECALLDICT
     }>
-    2 1 BLKDROP2
+    2DROP
     3547469196 PUSHINT
     EQUAL
     IFJMP:<{

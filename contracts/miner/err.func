@@ -9,3 +9,4 @@ int err::no_access()    asm "1003 PUSHINT";
 ;; pow
 int err::pow_not_solved() asm "2001 PUSHINT";
 int err::invalid_rparams() asm "2002 PUSHINT";
+int err::not_enough_mine_gas() asm "2003 PUSHINT";

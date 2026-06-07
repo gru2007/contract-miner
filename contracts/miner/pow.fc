@@ -28,7 +28,7 @@
     storage::load();
 
     if (op == op::mine()) { 
-        handle_int::mine(msg_body, sender_addr, body_hash);
+        handle_int::mine(msg_body, sender_addr, body_hash, msg_value);
         return ();
     }
 
