@@ -60,6 +60,11 @@ export const Opcodes = {
     mine: 0x4d696e65,
     transfer_notification: 0x7362d09c,
     change_settings: 100,
+    get_owner: 101,
+    owner_response: 102,
+    get_ton_balance: 103,
+    ton_balance_response: 104,
+    withdraw_ton: 105,
 };
 
 export class Miner implements Contract {
@@ -112,4 +117,22 @@ export class Miner implements Contract {
             value
         });
     }
+
+    static withdrawTonMessage(recipient: Address, amount: bigint, query_id: bigint | number = 0) {
+        return beginCell()
+            .storeUint(Opcodes.withdraw_ton, 32)
+            .storeUint(query_id, 64)
+            .storeAddress(recipient)
+            .storeCoins(amount)
+            .endCell();
+    }
+
+    async sendWithdrawTon(provider: ContractProvider, via: Sender, recipient: Address, amount: bigint, value: bigint = toNano('0.05'), query_id: bigint | number = 0) {
+        await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: Miner.withdrawTonMessage(recipient, amount, query_id),
+            value,
+        });
+    }
+
 }

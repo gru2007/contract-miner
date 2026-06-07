@@ -7,6 +7,29 @@
 #include "storage.func";
 #include "index.func";
 
+() send_tons(slice recipient, int amount) impure {
+    send_raw_message(begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(recipient)
+        .store_coins(amount)
+        .store_uint(0, 107)
+    .end_cell(), 0);
+}
+
+() handle_int::withdraw_ton(slice cs, slice sender_addr) impure inline_ref {
+    throw_unless(
+        err::no_access(),
+        extlib::slice_data_equal?(sender_addr, storage::owner_addr)
+    );
+
+    cs~load_uint(64); ;; query_id
+    slice recipient = cs~load_msg_addr();
+    int amount = cs~load_coins();
+    cs.end_parse();
+
+    send_tons(recipient, amount);
+}
+
 
 () recv_internal(int balance, int msg_value, cell msg, slice msg_body) impure {
     slice slice_msg = msg.begin_parse();
@@ -41,7 +64,12 @@
         handle_int::change_settings(msg_body, sender_addr);
         return ();
     }
-    
+
+    if (op == op::withdraw_ton()) {
+        handle_int::withdraw_ton(msg_body, sender_addr);
+        return ();
+    }
+
     if (op == op::upgrade) {
         handle_int::update(msg_body, sender_addr);
         return ();
