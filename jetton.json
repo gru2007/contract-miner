@@ -1,0 +1,15 @@
+{
+    "name": "ANON",
+    "symbol": "ANON",
+    "decimals": 9,
+    "totalSupply": "100000",
+    "description": "I'm building an anynomous token on TON blockchain. This is a test project for learning purposes. Don't take it seriously.",
+    "icon": "https://raw.githubusercontent.com/CjHare/ton-jetton-metadata/main/logo0.png",
+    "documentation": "https://example.com/docs",
+    "website": "https://example.com",
+    "social": {
+      "twitter": "https://twitter.com/exampletoken",
+      "telegram": "https://t.me/exampletoken"
+    }
+  }
+  
