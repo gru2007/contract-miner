@@ -15,15 +15,18 @@ global int      storage::max_cpl;
     storage::owner_addr     = ds~load_msg_addr();
     storage::jwall_addr     = ds~load_msg_addr();
 
-    storage::seed           = ds~load_uint(128);
-    storage::pow_complexity = ds~load_uint(256);
+    slice params            = ds~load_ref().begin_parse();
 
-    storage::last_success   = ds~load_uint(64);
-    storage::target_delta   = ds~load_uint(64);
+    storage::seed           = params~load_uint(128);
+    storage::pow_complexity = params~load_uint(256);
 
-    storage::min_cpl        = ds~load_uint(8);
-    storage::max_cpl        = ds~load_uint(8);
+    storage::last_success   = params~load_uint(64);
+    storage::target_delta   = params~load_uint(64);
 
+    storage::min_cpl        = params~load_uint(8);
+    storage::max_cpl        = params~load_uint(8);
+
+    params.end_parse();
     ds.end_parse();
 }
 
@@ -31,15 +34,16 @@ global int      storage::max_cpl;
     builder storage = begin_cell()
         .store_slice(storage::owner_addr)
         .store_slice(storage::jwall_addr)
-        ;; --------------------------------------
-        .store_uint(storage::seed, 128)
-        .store_uint(storage::pow_complexity, 256)
-        ;; --------------------------------------
-        .store_uint(storage::last_success, 64)
-        .store_uint(storage::target_delta, 64)
-        ;; --------------------------------------
-        .store_uint(storage::min_cpl, 8)
-        .store_uint(storage::max_cpl, 8);
+        .store_ref(begin_cell()
+            .store_uint(storage::seed, 128)
+            .store_uint(storage::pow_complexity, 256)
+            ;; --------------------------------------
+            .store_uint(storage::last_success, 64)
+            .store_uint(storage::target_delta, 64)
+            ;; --------------------------------------
+            .store_uint(storage::min_cpl, 8)
+            .store_uint(storage::max_cpl, 8)
+        .end_cell());
 
     set_data(storage.end_cell());
 }

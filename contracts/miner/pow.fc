@@ -10,23 +10,41 @@
 
 () recv_internal(int balance, int msg_value, cell msg, slice msg_body) impure {
     slice slice_msg = msg.begin_parse();
-    throw_if(0, slice_msg~load_uint(4) & 1);
+    int msg_flags = slice_msg~load_uint(4);
+    if (msg_flags & 1) {
+        return (); ;; ignore bounced jetton/excess messages
+    }
 
     slice sender_addr = slice_msg~load_msg_addr();
     throw_unless(err::addr_format(), extlib::basechsmpl_addr?(sender_addr));
 
+    if (msg_body.slice_empty?()) {
+        return (); ;; accept initial deploy/top-up message without op body
+    }
+
+    int body_hash = slice_hash(msg_body);
     int op = msg_body~load_uint(32);
 
+    storage::load();
+
+    if (op == op::mine()) { 
+        handle_int::mine(msg_body, sender_addr, body_hash);
+        return ();
+    }
+
     if (op == op::transfer_notification()) { 
-        handle_int::transfer_notification(sender_addr); 
+        handle_int::transfer_notification(sender_addr);
+        return ();
     }
 
     if (op == op::change_settings()) { 
-        handle_int::change_settings(msg_body, sender_addr); 
+        handle_int::change_settings(msg_body, sender_addr);
+        return ();
     }
     
     if (op == op::upgrade) {
-	    handle_int::update(msg_body, sender_addr); 
+        handle_int::update(msg_body, sender_addr);
+        return ();
     }
 
     if (op == op::top_up) {
@@ -37,9 +55,11 @@
 }
 
 () recv_external(slice in_msg) impure {
-    if (in_msg.preload_uint(32) == op::mine()) { 
-        handle_ext::mine(in_msg); 
-    }
+;;   i have remember that we need to do that internally
+;;   and add some funds
+;;    if (in_msg.preload_uint(32) == op::mine()) { 
+;;        handle_ext::mine(in_msg); 
+;;    }
 
     throw(err::not_found());
 }
@@ -54,6 +74,10 @@ int seqno() method_id {
 (int, int, int, int) get_pow_params() method_id {
 
     var ds = get_data().begin_parse();
-  var (owner_addr, jwall_addr, seed, pow_complexity) = (ds~load_msg_addr(), ds~load_msg_addr(), ds~load_uint(128), ds~load_uint(256));
-  return (seed, pow_complexity, 0x174876e800, 0x64);
+  var (owner_addr, jwall_addr) = (ds~load_msg_addr(), ds~load_msg_addr());
+  var params = ds~load_ref().begin_parse();
+  var (seed, pow_complexity) = (params~load_uint(128), params~load_uint(256));
+  params~load_uint(64); ;; last_success
+  int target_delta = params~load_uint(64);
+  return (seed, pow_complexity, 0x174876e800, target_delta);
 }

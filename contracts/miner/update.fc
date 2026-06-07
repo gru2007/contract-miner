@@ -9,6 +9,7 @@
         err::no_access(), 
         extlib::slice_data_equal?(sender_addr, storage::owner_addr)
     );
+    int query_id = body~load_uint(64);
     (cell new_data, cell new_code) = (body~load_ref(), body~load_ref());
     body.end_parse();
     set_data(new_data);

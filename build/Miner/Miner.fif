@@ -1,0 +1,379 @@
+"Asm.fif" include
+// automatically generated from `contracts/miner/pow.fc` incl:`contracts/miner/stdlib.fc` incl:`contracts/miner/extlib.func` incl:`contracts/miner/op.func` incl:`contracts/miner/err.func` incl:`contracts/miner/storage.func` incl:`contracts/miner/index.func` incl:`contracts/miner/mine.func` incl:`contracts/miner/settings.func` incl:`contracts/miner/transfer.func` incl:`contracts/miner/update.fc` 
+PROGRAM{
+  DECLPROC extlib::addrsmpl?
+  DECLPROC extlib::basechsmpl_addr?
+  DECLPROC storage::load
+  DECLPROC storage::save
+  DECLPROC storage::exit_save
+  DECLPROC send_tokens
+  DECLPROC handle_int::mine
+  DECLPROC handle_int::change_settings
+  DECLPROC handle_int::transfer_notification
+  DECLPROC handle_int::update
+  DECLPROC recv_internal
+  DECLPROC recv_external
+  85143 DECLMETHOD seqno
+  101616 DECLMETHOD get_pow_params
+  DECLGLOBVAR storage::owner_addr
+  DECLGLOBVAR storage::jwall_addr
+  DECLGLOBVAR storage::seed
+  DECLGLOBVAR storage::pow_complexity
+  DECLGLOBVAR storage::last_success
+  DECLGLOBVAR storage::target_delta
+  DECLGLOBVAR storage::min_cpl
+  DECLGLOBVAR storage::max_cpl
+  extlib::addrsmpl? PROCINLINE:<{
+    3 PLDSLICE
+    <b b{100} s, b> <s PUSHSLICE
+    SDEQ
+  }>
+  extlib::basechsmpl_addr? PROCINLINE:<{
+    DUP
+    extlib::addrsmpl? INLINECALLDICT
+    NOT
+    IF:<{
+      DROP
+      FALSE
+    }>ELSE<{
+      REWRITESTDADDR
+      DROP
+      0  PUSHINT
+      NEQ
+      IFJMP:<{
+        FALSE
+      }>
+      TRUE
+    }>
+  }>
+  storage::load PROCINLINE:<{
+    c4 PUSH
+    CTOS
+    LDMSGADDR
+    SWAP
+    storage::owner_addr SETGLOB
+    LDMSGADDR
+    SWAP
+    storage::jwall_addr SETGLOB
+    LDREF
+    SWAP
+    CTOS
+    128 LDU
+    SWAP
+    storage::seed SETGLOB
+    256 LDU
+    SWAP
+    storage::pow_complexity SETGLOB
+    64 LDU
+    SWAP
+    storage::last_success SETGLOB
+    64 LDU
+    SWAP
+    storage::target_delta SETGLOB
+    8 LDU
+    SWAP
+    storage::min_cpl SETGLOB
+    8 LDU
+    SWAP
+    storage::max_cpl SETGLOB
+    ENDS
+    ENDS
+  }>
+  storage::save PROCINLINE:<{
+    storage::max_cpl GETGLOB
+    storage::min_cpl GETGLOB
+    storage::target_delta GETGLOB
+    storage::last_success GETGLOB
+    storage::pow_complexity GETGLOB
+    storage::seed GETGLOB
+    NEWC
+    128 STU
+    256 STU
+    64 STU
+    64 STU
+    8 STU
+    8 STU
+    ENDC
+    NEWC
+    storage::owner_addr GETGLOB
+    STSLICER
+    storage::jwall_addr GETGLOB
+    STSLICER
+    STREF
+    ENDC
+    c4 POP
+  }>
+  storage::exit_save PROCINLINE:<{
+    storage::save INLINECALLDICT
+    0 THROW
+  }>
+  send_tokens PROC:<{
+    0 PUSHINT
+    s0 s0 PUSH2
+    260734629 PUSHINT
+    NEWC
+    32 STU
+    64 STU
+    s0 s3 XCHG2
+    STGRAMS
+    s3 PUSH
+    STSLICER
+    s0 s3 XCHG2
+    STSLICER
+    1 STU
+    OVER
+    STGRAMS
+    1 STU
+    ENDC
+    1 PUSHINT
+    24 PUSHINT
+    NEWC
+    6 STU
+    storage::jwall_addr GETGLOB
+    STSLICER
+    0 PUSHINT
+    STGRAMS
+    107 STU
+    STREF
+    ENDC
+    64 PUSHINT
+    SENDRAWMSG
+  }>
+  handle_int::mine PROCREF:<{
+    2001 PUSHINT
+    storage::pow_complexity GETGLOB
+    s1 s2 XCHG
+    LESS
+    THROWANYIFNOT
+    SWAP
+    8 LDI
+    NIP
+    32 LDU
+    256 LDU
+    NIP
+    256 LDU
+    128 LDU
+    256 LDU
+    ENDS
+    s0 s3 XCHG
+    NOW
+    SUB
+    10 PUSHINT
+    UFITSX
+    DROP
+    2002 PUSHINT
+    storage::seed GETGLOB
+    s1 s2 XCHG
+    EQUAL
+    s2 s3 PUXC
+    EQUAL
+    s1 s3 XCHG
+    AND
+    s1 s2 XCHG
+    THROWANYIFNOT
+    ACCEPT
+    LTIME
+    ADDRAND
+    ADDRAND
+    NOW
+    storage::last_success GETGLOB
+    SUB
+    DUP
+    0 GTINT
+    IF:<{
+      storage::target_delta GETGLOB
+      128 LSHIFT#DIVR
+      297747071055821155530452781502797185024 PUSHINTX
+      MAX
+      382817662786055771396296433360739237888 PUSHINTX
+      MIN
+      storage::pow_complexity GETGLOB
+      SWAP
+      128 MULRSHIFTR#
+      storage::min_cpl GETGLOB
+      POW2
+      MAX
+      storage::max_cpl GETGLOB
+      POW2
+      MIN
+      storage::pow_complexity SETGLOB
+    }>ELSE<{
+      DROP
+    }>
+    RANDU256
+    128 RSHIFT#
+    storage::seed SETGLOB
+    NOW
+    storage::last_success SETGLOB
+    COMMIT
+    100000000 PUSHINT
+    send_tokens CALLDICT
+    storage::exit_save INLINECALLDICT
+  }>
+  handle_int::change_settings PROCREF:<{
+    1003 PUSHINT
+    storage::owner_addr GETGLOB
+    s1 s2 XCHG
+    SDEQ
+    THROWANYIFNOT
+    8 LDU
+    OVER
+    IF:<{
+      storage::seed GETGLOB
+      ADDRAND
+      OVER
+      POW2
+      storage::pow_complexity SETGLOB
+      RANDU256
+      128 RSHIFT#
+      storage::seed SETGLOB
+    }>
+    1 LDI
+    OVER
+    IF:<{
+      LDREF
+      DROP
+      CTOS
+      64 LDU
+      SWAP
+      storage::target_delta SETGLOB
+      8 LDU
+      SWAP
+      storage::min_cpl SETGLOB
+      8 LDU
+      DROP
+      storage::max_cpl SETGLOB
+    }>ELSE<{
+      DROP
+    }>
+    OR
+    IF:<{
+      storage::exit_save INLINECALLDICT
+    }>
+    1002 PUSHINT
+    THROWANY
+  }>
+  handle_int::transfer_notification PROCREF:<{
+    storage::jwall_addr GETGLOB
+    <b b{00} s, b> <s PUSHSLICE
+    SDEQ
+    IF:<{
+      storage::jwall_addr SETGLOB
+      storage::exit_save INLINECALLDICT
+    }>ELSE<{
+      DROP
+    }>
+    1001 PUSHINT
+    THROWANY
+  }>
+  handle_int::update PROCREF:<{
+    1003 PUSHINT
+    storage::owner_addr GETGLOB
+    s1 s2 XCHG
+    SDEQ
+    THROWANYIFNOT
+    64 LDU
+    NIP
+    LDREF
+    LDREF
+    ENDS
+    SWAP
+    c4 POP
+    SETCODE
+  }>
+  recv_internal PROC:<{
+    s3 POP
+    NIP
+    CTOS
+    4 LDU
+    SWAP
+    1 PUSHINT
+    AND
+    IFJMP:<{
+      2DROP
+    }>
+    LDMSGADDR
+    DROP
+    1000 PUSHINT
+    OVER
+    extlib::basechsmpl_addr? INLINECALLDICT
+    THROWANYIFNOT
+    OVER
+    SEMPTY
+    IFJMP:<{
+      2DROP
+    }>
+    OVER
+    HASHSU
+    s0 s2 XCHG
+    32 LDU
+    storage::load INLINECALLDICT
+    0x4d696e65 PUSHINT
+    s2 s(-1) PUXC
+    EQUAL
+    IFJMP:<{
+      NIP
+      s0 s2 XCHG
+      handle_int::mine INLINECALLDICT
+    }>
+    s3 POP
+    0x7362d09c PUSHINT
+    s1 s(-1) PUXC
+    EQUAL
+    IFJMP:<{
+      DROP
+      NIP
+      handle_int::transfer_notification INLINECALLDICT
+    }>
+    100 PUSHINT
+    s1 s(-1) PUXC
+    EQUAL
+    IFJMP:<{
+      DROP
+      handle_int::change_settings INLINECALLDICT
+    }>
+    DUP
+    621336170 PUSHINT
+    EQUAL
+    IFJMP:<{
+      DROP
+      handle_int::update INLINECALLDICT
+    }>
+    2 1 BLKDROP2
+    3547469196 PUSHINT
+    EQUAL
+    IFJMP:<{
+    }>
+    0xffff PUSHINT
+    THROWANY
+  }>
+  recv_external PROC:<{
+    DROP
+    0xffff PUSHINT
+    THROWANY
+  }>
+  seqno PROC:<{
+    c4 PUSH
+    CTOS
+    32 PLDU
+  }>
+  get_pow_params PROC:<{
+    c4 PUSH
+    CTOS
+    LDMSGADDR
+    NIP
+    LDMSGADDR
+    NIP
+    LDREF
+    DROP
+    CTOS
+    128 LDU
+    256 LDU
+    64 LDU
+    NIP
+    64 LDU
+    DROP
+    100000000000 PUSHINT
+    SWAP
+  }>
+}END>c
