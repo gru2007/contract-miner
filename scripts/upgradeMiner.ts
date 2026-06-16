@@ -1,58 +1,65 @@
-import {toNano, OpenedContract} from '@ton/core';
-import {JettonMinter, jettonMinterConfigToCell} from '../wrappers/JettonMinter';
-import {Miner, minerConfigToCell} from '../wrappers/Miner';
-import {compile, NetworkProvider} from '@ton/blueprint';
-import {jettonWalletCodeFromLibrary, promptUrl, promptUserFriendlyAddress} from "../wrappers/ui-utils";
-import {checkJettonMinter} from "./JettonMinterChecker";
+import { toNano } from '@ton/core';
+import { compile, NetworkProvider } from '@ton/blueprint';
+import { Miner, minerConfigToCell } from '../wrappers/Miner';
+import { promptBool, promptUserFriendlyAddress } from '../wrappers/ui-utils';
+import { compactAddress, nowUnix, promptOptionalAddress, promptPositiveBigInt, promptUint } from './scriptUtils';
 
 export async function run(provider: NetworkProvider) {
     const isTestnet = provider.network() !== 'mainnet';
-
     const ui = provider.ui();
-    const MinerCodeRaw = await compile('Miner');
-    const minerAddr = await promptUserFriendlyAddress("Enter the address of the contract", ui, true);
-    const MinerContract: OpenedContract<Miner> = provider.open(Miner.createFromAddress(minerAddr.address));
 
-    const adminAddr = await promptUserFriendlyAddress("Enter the address of the owner", ui, true);
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    
+    const minerAddress = await promptUserFriendlyAddress('Enter Miner address to upgrade', ui, isTestnet);
+    const miner = provider.open(Miner.createFromAddress(minerAddress.address));
 
-    await MinerContract.sendUpgrade(
-        provider.sender(),
-        MinerCodeRaw,
-        // Miner data Cell stores owner_addr and jwall_addr in the root cell, then all PoW params in one ref:
-        // owner_addr: MsgAddress - admin address allowed to change settings / upgrade the miner.
-        // jwall_addr: MsgAddress - auto-detected from first jetton transfer_notification when null.
-        // seed: uint128 - current PoW challenge seed returned by get_pow_params(); choose any random non-zero
-        //   128-bit value for deploy/upgrade. Miners must use the current on-chain seed; after each successful
-        //   mine the contract replaces it with a new random seed, so this is not a difficulty knob. Use bigint
-        //   literals with `n` suffix for 128-bit values; JS number loses precision here.
-        // pow_complexity: uint256 - PoW target threshold checked as `slice_hash(mine_body) < pow_complexity`.
-        //   Bigger value means easier mining, smaller value means harder mining. Initial value should be inside
-        //   [2^min_cpl, 2^max_cpl], because future retargeting is clamped to that range. Use bigint literals
-        //   with `n` suffix for 256-bit values; JS number loses precision here.
-        //   Browser-friendly start below uses 2^248, so expected work is about 2^(256 - 248) = 256 hashes.
-        // last_success: uint64 - unix time of the previous successful mine. For first deploy use current unix
-        //   time if you want normal first retargeting; using 1 makes the first delta very large, but the contract
-        //   caps one-step retargeting to 9/8.
-        // target_delta: uint64 - desired seconds between successful mines. If actual delta is larger, mining gets
-        //   easier; if smaller, mining gets harder. Example: 60 means target about one success per minute.
-        // min_cpl: uint8 - lower clamp exponent for pow_complexity, stored as 2^min_cpl. This is the hardest
-        //   allowed target after retargeting.
-        // max_cpl: uint8 - upper clamp exponent for pow_complexity, stored as 2^max_cpl. This is the easiest
-        //   allowed target after retargeting.
-        minerConfigToCell({
-                owner_addr: adminAddr.address,
-			    jwall_addr: null,
-			    seed: 0x95b9ba60cd32d91a3255029230f8584fn,
-			    pow_complexity: 1n << 248n,
-			    last_success: now,
-			    target_delta: 60n,
-			    min_cpl: 240,
-			    max_cpl: 252,
-            })
-    );
+    let current: Awaited<ReturnType<typeof miner.getMinerData>> | null = null;
+    try {
+        current = await miner.getMinerData();
+        ui.write('Current miner data loaded from get_miner_data. Empty prompts will preserve current values.');
+        ui.write(`Owner: ${compactAddress(current.ownerAddress, isTestnet)}`);
+        ui.write(`Jetton wallet: ${compactAddress(current.jettonWalletAddress, isTestnet)}`);
+        ui.write(`Reward amount: ${current.rewardAmount.toString()}`);
+    } catch (e: any) {
+        ui.write(`Could not read get_miner_data, probably old contract code: ${e.message ?? e}`);
+        ui.write('You must enter full config manually. jwall_addr can be null for auto-detect.');
+    }
 
-    ui.write('Transaction sent');
+    const owner = await promptOptionalAddress('Enter owner/admin address', ui, isTestnet, current?.ownerAddress ?? provider.sender().address ?? null);
+    if (!owner) {
+        ui.write('Owner cannot be null');
+        return;
+    }
 
+    const jwall = await promptOptionalAddress('Enter stored jetton wallet address, or null for auto-detect', ui, isTestnet, current?.jettonWalletAddress ?? null);
+    const seed = await promptUint('Enter seed uint128', ui, 128, current?.seed ?? 0x95b9ba60cd32d91a3255029230f8584fn);
+    const powComplexity = await promptUint('Enter pow_complexity uint256; bigger = easier', ui, 256, current?.powComplexity ?? (1n << 248n));
+    const targetDelta = await promptPositiveBigInt('Enter target seconds between successful mines', ui, current?.targetDelta ?? 60n);
+    const minCpl = await promptUint('Enter min_cpl uint8', ui, 8, current?.minCpl ?? 240n);
+    const maxCpl = await promptUint('Enter max_cpl uint8', ui, 8, current?.maxCpl ?? 252n);
+    const rewardAmount = await promptPositiveBigInt('Enter reward_amount in jetton base units', ui, current?.rewardAmount ?? 100000000n);
+    const value = await promptPositiveBigInt('Enter TON value for upgrade in nanotons', ui, toNano('0.1'));
+
+    if (minCpl > maxCpl) {
+        ui.write('min_cpl cannot be greater than max_cpl');
+        return;
+    }
+
+    const newCode = await compile('Miner');
+    const newData = minerConfigToCell({
+        owner_addr: owner,
+        jwall_addr: jwall,
+        seed,
+        pow_complexity: powComplexity,
+        last_success: current?.lastSuccess ?? nowUnix(),
+        target_delta: targetDelta,
+        min_cpl: minCpl,
+        max_cpl: maxCpl,
+        reward_amount: rewardAmount,
+    });
+
+    if (!(await promptBool(`Upgrade Miner ${compactAddress(minerAddress.address, isTestnet)}?`, ['yes', 'no'], ui))) {
+        return;
+    }
+
+    await miner.sendUpgrade(provider.sender(), newCode, newData, value, BigInt(Date.now()));
+    ui.write('Upgrade transaction sent');
 }
