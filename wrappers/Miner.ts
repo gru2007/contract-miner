@@ -20,34 +20,6 @@ export type MinerConfig = {
 export const DEFAULT_REWARD_AMOUNT = 100000000n;
 
 export const GRM_GIVER_PRESETS = {
-    extraSmall: {
-        count: 2,
-        seed: 91364215591814176173860070590035324060n,
-        pow_complexity: 411376139330301510538742295639337626245683966408394965837152256n,
-        amount: 100000000000n,
-        interval: 100n,
-    },/*
-    small: {
-        count: 10,
-        seed: 110217239753205694903454587643682599146n,
-        pow_complexity: 1725436586697640946858688965569256363112777243042596638790631055949824n,
-        amount: 1000000000000n,
-        interval: 100n,
-    },
-    medium: {
-        count: 10,
-        seed: 5115922642252427458573938635172126545n,
-        pow_complexity: 26328072917139296674479506920917608079723773850137277813577744384n,
-        amount: 10000000000000n,
-        interval: 100000n,
-    },
-    large: {
-        count: 10,
-        seed: 146338750163420163575479661938498567997n,
-        pow_complexity: 52656145834278593348959013841835216159447547700274555627155488768n,
-        amount: 100000000000000n,
-        interval: 100000n,
-    },*/
 } as const;
 
 export abstract class Op {
@@ -86,26 +58,6 @@ export function minerConfigToCell(config: MinerConfig): Cell {
     .endCell();
 }
 
-export function createGrmGiverConfigs(owner: Address, now: number | bigint, options?: { jetton_minter_addr?: Address | null; jwall_addr?: Address | null; min_cpl?: bigint; max_cpl?: bigint }) {
-    const configs: MinerConfig[] = [];
-    for (const preset of Object.values(GRM_GIVER_PRESETS)) {
-        for (let i = 0; i < preset.count; i++) {
-            configs.push({
-                owner_addr: owner,
-                jetton_minter_addr: options?.jetton_minter_addr ?? options?.jwall_addr ?? null,
-                seed: (preset.seed + BigInt(i)) & ((1n << 128n) - 1n),
-                pow_complexity: preset.pow_complexity,
-                last_success: now,
-                target_delta: preset.interval,
-                min_cpl: options?.min_cpl ?? 1n,
-                max_cpl: options?.max_cpl ?? 255n,
-                reward_amount: preset.amount,
-            });
-        }
-    }
-    return configs;
-}
-
 export function endParse(slice: Slice) {
     if (slice.remainingBits > 0 || slice.remainingRefs > 0) {
         throw new Error('remaining bits in data');
@@ -114,6 +66,7 @@ export function endParse(slice: Slice) {
 
 export const Opcodes = {
     mine: 0x4d696e65,
+    mine_secure: 0x4d696e32,
     transfer_notification: 0x7362d09c,
     change_settings: 100,
     get_owner: 101,
@@ -122,6 +75,12 @@ export const Opcodes = {
     ton_balance_response: 104,
     withdraw_ton: 105,
 };
+
+export type MineMode = 'secure' | 'legacy';
+
+export function addressHash(address: Address): bigint {
+    return BigInt('0x' + beginCell().storeAddress(address).endCell().hash().toString('hex'));
+}
 
 export class Miner implements Contract {
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}
@@ -205,6 +164,7 @@ export class Miner implements Contract {
     }
 
     static mineMessage(params: {
+        mode?: MineMode;
         flags?: number;
         expire: number | bigint;
         whom?: number | bigint;
@@ -212,11 +172,16 @@ export class Miner implements Contract {
         rseed: number | bigint;
         recipient?: Address | null;
     }) {
+        const mode = params.mode ?? 'secure';
+        if (mode === 'secure' && !params.recipient) {
+            throw new Error('secure mining requires recipient');
+        }
+        const whom = params.whom ?? (params.recipient ? addressHash(params.recipient) : 0n);
         const body = beginCell()
-            .storeUint(Opcodes.mine, 32)
+            .storeUint(mode === 'secure' ? Opcodes.mine_secure : Opcodes.mine, 32)
             .storeInt(params.flags ?? 0, 8)
             .storeUint(params.expire, 32)
-            .storeUint(params.whom ?? 0, 256)
+            .storeUint(whom, 256)
             .storeUint(params.rdata, 256)
             .storeUint(params.rseed, 128)
             .storeUint(params.rdata, 256);
@@ -227,6 +192,7 @@ export class Miner implements Contract {
     }
 
     async sendMine(provider: ContractProvider, via: Sender, value: bigint, params: {
+        mode?: MineMode;
         flags?: number;
         expire: number | bigint;
         whom?: number | bigint;

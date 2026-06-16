@@ -66,25 +66,13 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
     return pow_minters.udict_set(256, pow_minter_key(address), begin_cell().store_coins(cap).store_coins(mined).end_cell().begin_parse());
 }
 
-() send_to_jetton_wallet(slice to_address, cell jetton_wallet_code, int ton_amount, cell master_msg, int need_state_init) impure inline {
-    raw_reserve(ONE_TON, RESERVE_REGULAR); ;; reserve for storage fees
-
-    cell state_init = calculate_jetton_wallet_state_init(to_address, my_address(), jetton_wallet_code);
-    slice to_wallet_address = calculate_jetton_wallet_address(state_init);
-
-    ;; build MessageRelaxed, see TL-B layout in stdlib.fc#L733
-    var msg = begin_cell()
-    .store_msg_flags_and_address_none(BOUNCEABLE)
-    .store_slice(to_wallet_address) ;; dest
-    .store_coins(ton_amount);
-
-    if (need_state_init) {
-        msg = msg.store_statinit_ref_and_body_ref(state_init, master_msg);
-    } else {
-        msg = msg.store_only_body_ref(master_msg);
-    }
-
-    send_raw_message(msg.end_cell(), SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+() send_tons(slice recipient, int amount) impure {
+    send_raw_message(begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(recipient)
+        .store_coins(amount)
+        .store_uint(0, 107)
+    .end_cell(), 0);
 }
 
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -110,31 +98,6 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
     (int op, int query_id) = in_msg_body~load_op_and_query_id();
 
     (int total_supply, slice admin_address, slice next_admin_address, cell jetton_wallet_code, cell metadata_uri, cell pow_minters) = load_data();
-    
-    if (in_msg_body.slice_empty?()) { ;; buy jettons for Toncoin
-
-      int amount = 10000000; ;; for mint message
-      int buy_amount = msg_value - amount;
-      throw_unless(76, buy_amount > 0);
-
-      int jetton_amount = buy_amount; ;; rate 1 jetton = 1 toncoin; multiply to price here
-      
-      slice to_address = sender_address;
-	    check_same_workchain(to_address);
-	    int ton_amount = amount;
-	    cell master_msg = begin_cell()
-	        .store_coins(jetton_amount)
-	        .store_slice(sender_address) ;; from_address
-	        .store_slice(my_address()) ;; response_address
-	        .store_uint(0, 1)
-	        .store_coins(0) ;; no forward_amount
-	        .store_uint(0, 1) ;; forward_payload in this slice, not separate cell
-	        .end_cell();
-	
-	    send_to_jetton_wallet(to_address, jetton_wallet_code, ton_amount, master_msg, TRUE);
-	    save_data(total_supply + jetton_amount, admin_address, next_admin_address, jetton_wallet_code, metadata_uri, pow_minters);
-	    return ();
-    }
 
     if (op == op::mint) {
         int is_from_admin = equal_slices_bits(sender_address, admin_address);
