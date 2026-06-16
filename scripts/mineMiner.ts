@@ -1,7 +1,7 @@
 import { toNano } from '@ton/core';
 import { randomBytes } from 'crypto';
 import { NetworkProvider, UIProvider } from '@ton/blueprint';
-import { Miner } from '../wrappers/Miner';
+import { addressHash, MineMode, Miner } from '../wrappers/Miner';
 import { promptBool, promptUserFriendlyAddress } from '../wrappers/ui-utils';
 import { bufferToBigInt, cellHashInt, formatTargetBits, promptBigInt, promptOptionalAddress, promptPositiveBigInt } from './scriptUtils';
 
@@ -17,6 +17,8 @@ async function findSolution(params: {
     expire: bigint;
     whom: bigint;
     flags: number;
+    mode: MineMode;
+    recipient: Parameters<typeof Miner.mineMessage>[0]['recipient'];
     maxAttempts: bigint;
     ui: UIProvider;
 }) {
@@ -25,12 +27,13 @@ async function findSolution(params: {
     for (let attempt = 0n; attempt < params.maxAttempts; attempt++) {
         const candidate = (nonce + attempt) & UINT128_MASK;
         const bodyForHash = Miner.mineMessage({
+            mode: params.mode,
             flags: params.flags,
             expire: params.expire,
             whom: params.whom,
             rdata: candidate,
             rseed: params.seed,
-            recipient: null,
+            recipient: params.mode === 'secure' ? params.recipient : null,
         });
 
         const hash = cellHashInt(bodyForHash);
@@ -79,8 +82,14 @@ export async function run(provider: NetworkProvider) {
     const expire = BigInt(Math.floor(Date.now() / 1000)) + ttl;
     const maxAttempts = await promptPositiveBigInt('Enter max local hash attempts', ui, 5000000n);
     const value = await promptBigInt('Enter TON value to attach in nanotons', ui, toNano('1.2'));
+    const secure = await promptBool('Use secure mining mode? / Безопасный режим майнинга?', ['yes', 'no'], ui, true);
+    const mode: MineMode = secure ? 'secure' : 'legacy';
     const flags = 0;
-    const whom = 0n;
+    const whom = secure ? addressHash(recipient) : 0n;
+
+    if (!secure) {
+        ui.write('WARNING: legacy Mine mode does not bind the proof to the recipient. A front-runner can steal a reward by changing recipient. / ВНИМАНИЕ: legacy режим не привязывает proof к получателю, награду можно украсть фронтраном.');
+    }
 
     ui.write('Searching local PoW solution...');
     const solution = await findSolution({
@@ -89,6 +98,8 @@ export async function run(provider: NetworkProvider) {
         expire,
         whom,
         flags,
+        mode,
+        recipient,
         maxAttempts,
         ui,
     });
@@ -108,6 +119,7 @@ export async function run(provider: NetworkProvider) {
     }
 
     await miner.sendMine(provider.sender(), value, {
+        mode,
         flags,
         expire,
         whom,

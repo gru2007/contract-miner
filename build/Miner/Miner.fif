@@ -175,13 +175,12 @@ PROGRAM{
     SENDRAWMSG
   }>
   handle_int::mine PROCREF:<{
-    NIP
     2003 PUSHINT
-    OVER
+    s2 PUSH
     190000000 PUSHINT
     GEQ
     THROWANYIFNOT
-    s0 s2 XCHG
+    s0 s4 XCHG
     8 LDI
     32 LDU
     256 LDU
@@ -190,52 +189,76 @@ PROGRAM{
     256 LDU
     DUP
     SBITREFS
+    DUP
     0 GTINT
     IF:<{
-      DROP
-      s7 POP
-      s0 s6 XCHG
+      s11 POP
+      SWAP
       LDREF
       SWAP
       CTOS
       LDMSGADDR
       ENDS
     }>ELSE<{
+      OVER
       0 GTINT
       IF:<{
-        s7 POP
-        s0 s6 XCHG
+        s11 POP
+        SWAP
         LDMSGADDR
-        s1 s7 XCHG
+        s0 s0 s11 XCHG3
       }>
-      s0 s7 XCHG2
+      s2 s11 XCHG2
     }>
     SWAP
     ENDS
-    0x4d696e65 PUSHINT
-    NEWC
-    32 STU
-    s1 s6 XCHG
-    8 STI
-    s4 s(-1) PUXC
-    32 STU
-    s1 s3 XCHG
-    256 STU
-    s1 s(-1) PUXC
-    256 STU
-    s2 s(-1) PUXC
-    128 STU
-    s5 s(-1) PUXC
-    256 STU
-    ENDC
-    CTOS
-    HASHSU
+    s0 s11 XCHG
+    IF:<{
+      s6 POP
+      2002 PUSHINT
+      s6 s9 XCHG2
+      OR
+      s1 s8 XCHG
+      THROWANYIFNOT
+      2002 PUSHINT
+      NEWC
+      s9 PUSH
+      STSLICER
+      ENDC
+      HASHCU
+      s1 s3 XCHG
+      EQUAL
+      s1 s2 XCHG
+      THROWANYIFNOT
+    }>ELSE<{
+      DROP
+      s7 POP
+      s7 POP
+      0x4d696e65 PUSHINT
+      NEWC
+      32 STU
+      s1 s4 XCHG
+      8 STI
+      s2 s(-1) PUXC
+      32 STU
+      256 STU
+      s2 s(-1) PUXC
+      256 STU
+      s5 s(-1) PUXC
+      128 STU
+      s4 s(-1) PUXC
+      256 STU
+      ENDC
+      CTOS
+      HASHSU
+      s4 s1 s4 XCHG3
+    }>
     2001 PUSHINT
     storage::pow_complexity GETGLOB
-    s1 s2 XCHG
+    s1 s6 XCHG
     LESS
+    s1 s5 XCHG
     THROWANYIFNOT
-    s0 s2 XCHG
     NOW
     SUB
     10 PUSHINT
@@ -243,18 +266,16 @@ PROGRAM{
     DROP
     2002 PUSHINT
     storage::seed GETGLOB
-    s1 s2 XCHG
+    s1 s5 XCHG
     EQUAL
-    s2 s4 PUXC
+    s3 s1 PUXC
     EQUAL
-    s1 s4 XCHG
     AND
     s1 s3 XCHG
     THROWANYIFNOT
     ACCEPT
     LTIME
     ADDRAND
-    SWAP
     ADDRAND
     NOW
     storage::last_success GETGLOB
@@ -286,15 +307,14 @@ PROGRAM{
     storage::seed SETGLOB
     NOW
     storage::last_success SETGLOB
-    OVER
+    DUP
     10 PUSHINT
     DIV
     storage::save INLINECALLDICT
     COMMIT
     storage::reward_amount GETGLOB
-    s3 s3 XCHG2
+    -ROT
     SUB
-    s1 s2 XCHG
     send_mint CALLDICT
     0 THROW
   }>
@@ -428,6 +448,16 @@ PROGRAM{
     IFJMP:<{
       NIP
       s1 s3 s3 XCHG3
+      0 PUSHINT
+      handle_int::mine INLINECALLDICT
+    }>
+    0x4d696e32 PUSHINT
+    s2 s(-1) PUXC
+    EQUAL
+    IFJMP:<{
+      NIP
+      s1 s3 s3 XCHG3
+      -1 PUSHINT
       handle_int::mine INLINECALLDICT
     }>
     s3 POP

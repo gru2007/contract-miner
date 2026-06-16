@@ -22,6 +22,29 @@ export const DEFAULT_REWARD_AMOUNT = 100000000n;
 export const GRM_GIVER_PRESETS = {
 } as const;
 
+export function createGrmGiverConfigs(owner: Address, seedBase: bigint, overrides: Partial<MinerConfig> = {}): MinerConfig[] {
+    const rewards = [100000000000n, 1000000000000n, 10000000000000n, 100000000000000n];
+    const configs: MinerConfig[] = [];
+
+    for (let tier = 0; tier < rewards.length; tier++) {
+        for (let index = 0; index < 10; index++) {
+            configs.push({
+                owner_addr: owner,
+                jetton_minter_addr: overrides.jetton_minter_addr ?? null,
+                seed: (seedBase + BigInt(tier * 10 + index)) & ((1n << 128n) - 1n),
+                pow_complexity: overrides.pow_complexity ?? (1n << 248n),
+                last_success: overrides.last_success ?? seedBase,
+                target_delta: overrides.target_delta ?? 100n,
+                min_cpl: overrides.min_cpl ?? 240n,
+                max_cpl: overrides.max_cpl ?? 252n,
+                reward_amount: overrides.reward_amount ?? rewards[tier],
+            });
+        }
+    }
+
+    return configs;
+}
+
 export abstract class Op {
     static transfer = 0xf8a7ea5;
     static transfer_notification = 0x7362d09c;

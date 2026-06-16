@@ -28,7 +28,7 @@ const int mine::min_msg_value = 190000000;
     .end_cell(), 0);
 }
 
-() handle_int::mine(slice cs, slice sender_addr, int body_hash, int msg_value) impure inline_ref {
+() handle_int::mine(slice cs, slice sender_addr, int body_hash, int msg_value, int secure) impure inline_ref {
     throw_unless(err::not_enough_mine_gas(), msg_value >= mine::min_msg_value);
 
     ;; op was already consumed by recv_internal; flags and whom are legacy pow-miner fields.
@@ -52,16 +52,21 @@ const int mine::min_msg_value = 190000000;
     }
     cs.end_parse();
 
-    ;; Optional recipient is intentionally outside this hash to keep legacy mining bodies valid.
-    body_hash = slice_hash(begin_cell()
-        .store_uint(op::mine(), 32)
-        .store_int(flags, 8)
-        .store_uint(expire, 32)
-        .store_uint(whom, 256)
-        .store_uint(rdata1, 256)
-        .store_uint(rseed, 128)
-        .store_uint(rdata2, 256)
-    .end_cell().begin_parse());
+    if (secure) {
+        throw_unless(err::invalid_rparams(), remaining_bits | remaining_refs);
+        throw_unless(err::invalid_rparams(), whom == cell_hash(begin_cell().store_slice(recipient).end_cell()));
+    } else {
+        ;; Legacy Mine keeps the old GRAM-compatible hash and does not protect recipient overrides.
+        body_hash = slice_hash(begin_cell()
+            .store_uint(op::mine(), 32)
+            .store_int(flags, 8)
+            .store_uint(expire, 32)
+            .store_uint(whom, 256)
+            .store_uint(rdata1, 256)
+            .store_uint(rseed, 128)
+            .store_uint(rdata2, 256)
+        .end_cell().begin_parse());
+    }
 
     throw_unless(err::pow_not_solved(), body_hash < storage::pow_complexity);
 

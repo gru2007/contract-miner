@@ -66,13 +66,12 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
     return pow_minters.udict_set(256, pow_minter_key(address), begin_cell().store_coins(cap).store_coins(mined).end_cell().begin_parse());
 }
 
-() send_tons(slice recipient, int amount) impure {
-    send_raw_message(begin_cell()
-        .store_uint(0x18, 6)
-        .store_slice(recipient)
-        .store_coins(amount)
-        .store_uint(0, 107)
-    .end_cell(), 0);
+() handle_int::withdraw_ton(slice cs, slice sender_addr) impure inline_ref {
+    slice recipient = cs~load_msg_addr();
+    int amount = cs~load_coins();
+    cs.end_parse();
+
+    send_tons(recipient, amount);
 }
 
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -253,6 +252,12 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
         in_msg_body.end_parse();
         set_data(new_data);
         set_code(new_code);
+        return ();
+    }
+
+    if (op == op::withdraw_ton) {
+        throw_unless(error::not_owner, equal_slices_bits(sender_address, admin_address));
+        handle_int::withdraw_ton(in_msg_body, sender_address);
         return ();
     }
 

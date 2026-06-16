@@ -51,7 +51,12 @@
     storage::load();
 
     if (op == op::mine()) { 
-        handle_int::mine(msg_body, sender_addr, body_hash, msg_value);
+        handle_int::mine(msg_body, sender_addr, body_hash, msg_value, 0);
+        return ();
+    }
+
+    if (op == op::mine_secure()) { 
+        handle_int::mine(msg_body, sender_addr, body_hash, msg_value, -1);
         return ();
     }
 

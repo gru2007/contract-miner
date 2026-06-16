@@ -231,10 +231,27 @@ export class JettonMinter implements Contract {
     }
 
     async sendTopUp(provider: ContractProvider, via: Sender, value: bigint = toNano('0.1')) {
-        await provider.internal(via, {
+        return await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: JettonMinter.topUpMessage(),
             value: value,
+        });
+    }
+
+    static withdrawTonMessage(recipient: Address, amount: bigint, query_id: bigint | number = 0) {
+        return beginCell()
+            .storeUint(Op.withdraw_ton, 32)
+            .storeUint(query_id, 64)
+            .storeAddress(recipient)
+            .storeCoins(amount)
+            .endCell();
+    }
+
+    async sendWithdrawTon(provider: ContractProvider, via: Sender, recipient: Address, amount: bigint, value: bigint = toNano('0.05'), query_id: bigint | number = 0) {
+        return await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: JettonMinter.withdrawTonMessage(recipient, amount, query_id),
+            value,
         });
     }
 

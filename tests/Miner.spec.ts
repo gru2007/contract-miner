@@ -1,6 +1,6 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { Cell, SendMode, toNano } from '@ton/core';
-import { createGrmGiverConfigs, Miner } from '../wrappers/Miner';
+import { addressHash, createGrmGiverConfigs, Miner } from '../wrappers/Miner';
 import { JettonWallet } from '../wrappers/JettonWallet';
 import { jettonContentToCell, JettonMinter } from '../wrappers/JettonMinter';
 import { Op } from '../wrappers/JettonConstants';
@@ -11,11 +11,11 @@ function hashToBigInt(cell: Cell) {
     return BigInt('0x' + cell.hash().toString('hex'));
 }
 
-function findMineParams(seed: bigint, complexity: bigint, expire: bigint, recipient?: SandboxContract<TreasuryContract>) {
+function findMineParams(seed: bigint, complexity: bigint, expire: bigint, recipient: SandboxContract<TreasuryContract>, mode: 'secure' | 'legacy' = 'secure') {
     for (let i = 0n; i < 10000n; i++) {
-        const body = Miner.mineMessage({ expire, rdata: i, rseed: seed });
+        const body = Miner.mineMessage({ mode, expire, rdata: i, rseed: seed, recipient: mode === 'secure' ? recipient.address : null });
         if (hashToBigInt(body) < complexity) {
-            return { expire, rdata: i, rseed: seed, recipient: recipient?.address };
+            return { mode, expire, whom: mode === 'secure' ? addressHash(recipient.address) : 0n, rdata: i, rseed: seed, recipient: recipient.address };
         }
     }
     throw new Error('failed to find test PoW body');
@@ -88,6 +88,36 @@ describe('Miner', () => {
         expect(await miner.getJettonMinterAddress()).toEqualAddress(jettonMinter.address);
     });
 
+    it('top_up accepts TON without minting public buy rewards', async () => {
+        const beforeSupply = await jettonMinter.getTotalSupply();
+
+        const result = await jettonMinter.sendTopUp(minerUser.getSender(), toNano('1'));
+
+        expect(result.transactions).toHaveTransaction({
+            from: minerUser.address,
+            to: jettonMinter.address,
+            op: Op.top_up,
+            success: true,
+        });
+        expect(await jettonMinter.getTotalSupply()).toEqual(beforeSupply);
+    });
+
+    it('allows minter admin to withdraw TON from minter', async () => {
+        const result = await jettonMinter.sendWithdrawTon(admin.getSender(), rewardRecipient.address, toNano('0.2'));
+
+        expect(result.transactions).toHaveTransaction({
+            from: admin.address,
+            to: jettonMinter.address,
+            op: Op.withdraw_ton,
+            success: true,
+        });
+        expect(result.transactions).toHaveTransaction({
+            from: jettonMinter.address,
+            to: rewardRecipient.address,
+            success: true,
+        });
+    });
+
     it('mines PoW reward by minting from minter to user wallet', async () => {
         const userJettonWallet = blockchain.openContract(
             JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(minerUser.address)),
@@ -97,7 +127,7 @@ describe('Miner', () => {
         expect(await jettonMinter.getPowMinterEnabled(miner.address)).toBe(true);
 
         const pow = await miner.getPowParams();
-        const mineResult = await miner.sendMine(minerUser.getSender(), toNano('1.2'), findMineParams(pow.seed, pow.powComplexity, BigInt(blockchain.now! + 300)));
+        const mineResult = await miner.sendMine(minerUser.getSender(), toNano('1.2'), findMineParams(pow.seed, pow.powComplexity, BigInt(blockchain.now! + 300), minerUser));
 
         expect(mineResult.transactions).toHaveTransaction({
             from: miner.address,
@@ -130,7 +160,7 @@ describe('Miner', () => {
         expect(minerData.targetDelta).toEqual(60n);
     });
 
-    it('can mine to an explicit recipient without changing the legacy PoW hash prefix', async () => {
+    it('binds secure PoW reward to an explicit recipient', async () => {
         const recipientJettonWallet = blockchain.openContract(
             JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(rewardRecipient.address)),
         );
@@ -151,9 +181,50 @@ describe('Miner', () => {
         expect(await blockchain.openContract(JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(minerUser.address))).getJettonBalance()).toEqual(0n);
     });
 
+    it('rejects secure PoW if recipient is changed after mining', async () => {
+        await jettonMinter.sendSetPowMinter(admin.getSender(), miner.address, true, 1_000_000_000n);
+
+        const pow = await miner.getPowParams();
+        const params = findMineParams(pow.seed, pow.powComplexity, BigInt(blockchain.now! + 300), rewardRecipient);
+        const result = await miner.sendMine(minerUser.getSender(), toNano('1.2'), {
+            ...params,
+            recipient: minerUser.address,
+        });
+
+        expect(result.transactions).toHaveTransaction({
+            from: minerUser.address,
+            to: miner.address,
+            success: false,
+            exitCode: 2002,
+        });
+    });
+
+    it('keeps legacy Mine mode available but recipient override remains unsafe', async () => {
+        const userJettonWallet = blockchain.openContract(
+            JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(minerUser.address)),
+        );
+
+        await jettonMinter.sendSetPowMinter(admin.getSender(), miner.address, true, 1_000_000_000n);
+
+        const pow = await miner.getPowParams();
+        const params = findMineParams(pow.seed, pow.powComplexity, BigInt(blockchain.now! + 300), rewardRecipient, 'legacy');
+        const result = await miner.sendMine(minerUser.getSender(), toNano('1.2'), {
+            ...params,
+            recipient: minerUser.address,
+        });
+
+        expect(result.transactions).toHaveTransaction({
+            from: jettonMinter.address,
+            to: userJettonWallet.address,
+            op: Op.internal_transfer,
+            success: true,
+        });
+        expect(await userJettonWallet.getJettonBalance()).toEqual(100_000_000n);
+    });
+
     it('saves new mining state before mint action even when miner is not allowlisted', async () => {
         const before = await miner.getMinerData();
-        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300));
+        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300), minerUser);
         const mineResult = await miner.sendMine(minerUser.getSender(), toNano('1.2'), params);
         const after = await miner.getMinerData();
 
@@ -175,7 +246,7 @@ describe('Miner', () => {
 
         await jettonMinter.sendSetPowMinter(admin.getSender(), miner.address, true, 50_000_000n);
         const before = await miner.getMinerData();
-        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300));
+        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300), minerUser);
         const result = await miner.sendMine(minerUser.getSender(), toNano('1.2'), params);
         const after = await miner.getMinerData();
         const powMinterData = await jettonMinter.getPowMinterData(miner.address);
@@ -207,7 +278,7 @@ describe('Miner', () => {
         await jettonMinter.sendSetPowMinter(admin.getSender(), fastMiner.address, true, 1_000_000_000n);
 
         const before = await fastMiner.getMiningConfig();
-        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300));
+        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300), minerUser);
         await fastMiner.sendMine(minerUser.getSender(), toNano('1.2'), params);
         const after = await fastMiner.getMiningConfig();
 
@@ -229,7 +300,7 @@ describe('Miner', () => {
         await jettonMinter.sendSetPowMinter(admin.getSender(), slowMiner.address, true, 1_000_000_000n);
 
         const before = await slowMiner.getMiningConfig();
-        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300));
+        const params = findMineParams(before.seed, before.powComplexity, BigInt(blockchain.now! + 300), minerUser);
         await slowMiner.sendMine(minerUser.getSender(), toNano('1.2'), params);
         const after = await slowMiner.getMiningConfig();
 

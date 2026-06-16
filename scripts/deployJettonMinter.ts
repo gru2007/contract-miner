@@ -62,5 +62,5 @@ export async function run(provider: NetworkProvider) {
         },
         await compile('JettonMinter')));
 
-    await minter.sendDeploy(provider.sender(), toNano("1.5")); // send 1.5 TON
+    await minter.sendDeploy(provider.sender(), toNano("0.5")); // send 0.5 TON
 }
