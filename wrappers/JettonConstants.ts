@@ -18,6 +18,7 @@ export abstract class Op {
     static set_pow_minter = 0x4d6e7452;
     static set_status = 0xeed236d3;
     static withdraw_ton = 105;
+    static upgrade_code = 106;
 }
 
 export abstract class Errors {
