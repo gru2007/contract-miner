@@ -28,7 +28,6 @@ PROGRAM{
   DECLPROC calculate_jetton_wallet_state_init
   DECLPROC calculate_jetton_wallet_address
   DECLPROC calculate_user_jetton_wallet_address
-  DECLPROC send_to_jetton_wallet
   DECLPROC check_either_forward_payload
   DECLPROC calculate_jetton_wallet_min_storage_fee
   DECLPROC forward_init_state_overhead
@@ -40,6 +39,7 @@ PROGRAM{
   DECLPROC is_pow_minter
   DECLPROC load_pow_minter_data
   DECLPROC set_pow_minter_data
+  DECLPROC send_to_jetton_wallet
   DECLPROC send_tons
   DECLPROC handle_int::withdraw_ton
   DECLPROC recv_internal
@@ -211,32 +211,6 @@ PROGRAM{
   calculate_user_jetton_wallet_address PROCINLINE:<{
     calculate_jetton_wallet_state_init INLINECALLDICT
     calculate_jetton_wallet_address INLINECALLDICT
-  }>
-  send_to_jetton_wallet PROCREF:<{
-    MYADDR
-    s5 s0 s4 XCHG3
-    calculate_jetton_wallet_state_init INLINECALLDICT
-    DUP
-    calculate_jetton_wallet_address INLINECALLDICT
-    NEWC
-    24 PUSHINT
-    store_msg_flags_and_address_none INLINECALLDICT
-    SWAP
-    STSLICER
-    ROT
-    STVARUINT16
-    s0 s2 XCHG
-    IF:<{
-      ROT
-      store_statinit_ref_and_body_ref INLINECALLDICT
-    }>ELSE<{
-      DROP
-      SWAP
-      store_only_body_ref INLINECALLDICT
-    }>
-    ENDC
-    80 PUSHINT
-    SENDRAWMSG
   }>
   check_either_forward_payload PROCINLINE:<{
     DUP
@@ -411,6 +385,35 @@ PROGRAM{
     ROT
     8 PUSHPOW2
     DICTUSET
+  }>
+  send_to_jetton_wallet PROCINLINE:<{
+    1000000000 PUSHINT
+    0 PUSHINT
+    RAWRESERVE
+    MYADDR
+    s5 s0 s4 XCHG3
+    calculate_jetton_wallet_state_init INLINECALLDICT
+    DUP
+    calculate_jetton_wallet_address INLINECALLDICT
+    NEWC
+    24 PUSHINT
+    store_msg_flags_and_address_none INLINECALLDICT
+    SWAP
+    STSLICER
+    ROT
+    STVARUINT16
+    s0 s2 XCHG
+    IF:<{
+      ROT
+      store_statinit_ref_and_body_ref INLINECALLDICT
+    }>ELSE<{
+      DROP
+      SWAP
+      store_only_body_ref INLINECALLDICT
+    }>
+    ENDC
+    17 PUSHINT
+    SENDRAWMSG
   }>
   send_tons PROC:<{
     0 PUSHINT
