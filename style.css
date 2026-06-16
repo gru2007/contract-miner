@@ -1,0 +1,59 @@
+body {
+    padding: 20px;
+    width: 820px;
+    margin-right: auto;
+    margin-left: auto;
+    font: 15px arial, sans-serif;
+    color: #111;
+    line-height: 1.4;
+}
+
+a {
+    color: #1a73e8;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #1a73e8;
+    text-decoration: underline;
+}
+
+ul li {
+    margin-bottom: 8px;
+}
+
+h2 {
+    padding-top: 20px;
+}
+
+h3 {
+    padding-top: 12px;
+}
+
+code, pre {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px;
+}
+
+pre {
+    padding: 12px;
+    overflow: auto;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+}
+
+.note {
+    color: #555;
+}
+
+.small {
+    font-size: 13px;
+    color: #555;
+}
+
+@media (max-width: 900px) {
+    body {
+        width: auto;
+        padding: 16px;
+    }
+}

@@ -1,0 +1,9 @@
+I should write here a lot of text...
+
+but I'm too lazy right now, so... check out https://github.com/gru2007/web-miner for reference and source on https://github.com/gru2007/zkgrmcoin
+
+We support new way of mining and old one. Docs will appear later.
+
+for now only extra small givers are avaliable - we will add more when will be ready:
+
+PLACEHOLDER
