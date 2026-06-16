@@ -1,4 +1,4 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from '@ton/core';
+import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from '@ton/core';
 import {
     Slice,
     toNano
@@ -6,14 +6,48 @@ import {
 
 export type MinerConfig = {
     owner_addr: Address,
-    jwall_addr: Address,
+    jwall_addr: Address | null,
     seed: number | bigint,
     pow_complexity: number | bigint,
     last_success: number | bigint,
     target_delta: number | bigint,
     min_cpl: number | bigint,
     max_cpl: number | bigint,
+    reward_amount?: number | bigint,
 };
+
+export const DEFAULT_REWARD_AMOUNT = 100000000n;
+
+export const GRM_GIVER_PRESETS = {
+    extraSmall: {
+        count: 10,
+        seed: 91364215591814176173860070590035324060n,
+        pow_complexity: 411376139330301510538742295639337626245683966408394965837152256n,
+        amount: 100000000000n,
+        interval: 100n,
+    },
+    small: {
+        count: 10,
+        seed: 110217239753205694903454587643682599146n,
+        pow_complexity: 1725436586697640946858688965569256363112777243042596638790631055949824n,
+        amount: 1000000000000n,
+        interval: 100n,
+    },
+    medium: {
+        count: 10,
+        seed: 5115922642252427458573938635172126545n,
+        pow_complexity: 26328072917139296674479506920917608079723773850137277813577744384n,
+        amount: 10000000000000n,
+        interval: 100000n,
+    },
+    large: {
+        count: 10,
+        seed: 146338750163420163575479661938498567997n,
+        pow_complexity: 52656145834278593348959013841835216159447547700274555627155488768n,
+        amount: 100000000000000n,
+        interval: 100000n,
+    },
+} as const;
 
 export abstract class Op {
     static transfer = 0xf8a7ea5;
@@ -46,8 +80,29 @@ export function minerConfigToCell(config: MinerConfig): Cell {
         .storeUint(config.target_delta, 64)
         .storeUint(config.min_cpl, 8)
         .storeUint(config.max_cpl, 8)
+        .storeCoins(config.reward_amount ?? DEFAULT_REWARD_AMOUNT)
         .endCell())
     .endCell();
+}
+
+export function createGrmGiverConfigs(owner: Address, now: number | bigint, options?: { jwall_addr?: Address | null; min_cpl?: bigint; max_cpl?: bigint }) {
+    const configs: MinerConfig[] = [];
+    for (const preset of Object.values(GRM_GIVER_PRESETS)) {
+        for (let i = 0; i < preset.count; i++) {
+            configs.push({
+                owner_addr: owner,
+                jwall_addr: options?.jwall_addr ?? null,
+                seed: (preset.seed + BigInt(i)) & ((1n << 128n) - 1n),
+                pow_complexity: preset.pow_complexity,
+                last_success: now,
+                target_delta: preset.interval,
+                min_cpl: options?.min_cpl ?? 1n,
+                max_cpl: options?.max_cpl ?? 255n,
+                reward_amount: preset.amount,
+            });
+        }
+    }
+    return configs;
 }
 
 export function endParse(slice: Slice) {
@@ -80,8 +135,21 @@ export class Miner implements Contract {
         return new Miner(contractAddress(workchain, init), init);
     }
 
+    static createDeployMessage(contract: Miner, value: bigint): MessageRelaxed {
+        return internal({
+            to: contract.address,
+            value,
+            init: contract.init,
+            body: beginCell().endCell(),
+        });
+    }
+
+    static createGiversFromConfigs(configs: MinerConfig[], code: Cell, workchain = 0) {
+        return configs.map((config) => Miner.createFromConfig(config, code, workchain));
+    }
+
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
-        await provider.internal(via, {
+        return await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell().endCell(),
@@ -111,7 +179,7 @@ export class Miner implements Contract {
 
 
     async sendUpgrade(provider: ContractProvider, via: Sender, new_code: Cell, new_data: Cell, value: bigint = toNano('0.1'), query_id: bigint | number = 0) {
-        await provider.internal(via, {
+        return await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: Miner.upgradeMessage(new_code, new_data, query_id),
             value
@@ -128,11 +196,95 @@ export class Miner implements Contract {
     }
 
     async sendWithdrawTon(provider: ContractProvider, via: Sender, recipient: Address, amount: bigint, value: bigint = toNano('0.05'), query_id: bigint | number = 0) {
-        await provider.internal(via, {
+        return await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: Miner.withdrawTonMessage(recipient, amount, query_id),
             value,
         });
+    }
+
+    static mineMessage(params: {
+        flags?: number;
+        expire: number | bigint;
+        whom?: number | bigint;
+        rdata: number | bigint;
+        rseed: number | bigint;
+        recipient?: Address | null;
+    }) {
+        const body = beginCell()
+            .storeUint(Opcodes.mine, 32)
+            .storeInt(params.flags ?? 0, 8)
+            .storeUint(params.expire, 32)
+            .storeUint(params.whom ?? 0, 256)
+            .storeUint(params.rdata, 256)
+            .storeUint(params.rseed, 128)
+            .storeUint(params.rdata, 256);
+        if (params.recipient) {
+            body.storeRef(beginCell().storeAddress(params.recipient).endCell());
+        }
+        return body.endCell();
+    }
+
+    async sendMine(provider: ContractProvider, via: Sender, value: bigint, params: {
+        flags?: number;
+        expire: number | bigint;
+        whom?: number | bigint;
+        rdata: number | bigint;
+        rseed: number | bigint;
+        recipient?: Address | null;
+    }) {
+        return await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: Miner.mineMessage(params),
+            value,
+        });
+    }
+
+    async getPowParams(provider: ContractProvider) {
+        const { stack } = await provider.get('get_pow_params', []);
+        return {
+            seed: stack.readBigNumber(),
+            powComplexity: stack.readBigNumber(),
+            amount: stack.readBigNumber(),
+            targetDelta: stack.readBigNumber(),
+        };
+    }
+
+    async getJettonWalletAddress(provider: ContractProvider) {
+        const { stack } = await provider.get('get_jetton_wallet_address', []);
+        return stack.readAddressOpt();
+    }
+
+    async getRewardAmount(provider: ContractProvider) {
+        const { stack } = await provider.get('get_reward_amount', []);
+        return stack.readBigNumber();
+    }
+
+    async getMiningConfig(provider: ContractProvider) {
+        const { stack } = await provider.get('get_mining_config', []);
+        return {
+            seed: stack.readBigNumber(),
+            powComplexity: stack.readBigNumber(),
+            targetDelta: stack.readBigNumber(),
+            minCpl: stack.readBigNumber(),
+            maxCpl: stack.readBigNumber(),
+            rewardAmount: stack.readBigNumber(),
+        };
+    }
+
+    async getMinerData(provider: ContractProvider) {
+        const { stack } = await provider.get('get_miner_data', []);
+        return {
+            ownerAddress: stack.readAddress(),
+            jettonWalletAddress: stack.readAddressOpt(),
+            seed: stack.readBigNumber(),
+            powComplexity: stack.readBigNumber(),
+            lastSuccess: stack.readBigNumber(),
+            targetDelta: stack.readBigNumber(),
+            minCpl: stack.readBigNumber(),
+            maxCpl: stack.readBigNumber(),
+            rewardAmount: stack.readBigNumber(),
+        };
     }
 
 }

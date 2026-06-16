@@ -98,14 +98,29 @@ int seqno() method_id {
   return get_data().begin_parse().preload_uint(32);
 }
 
-;; gets (seed, pow_complexity, amount, interval)
+;; GRM-compatible get-method: (seed, pow_complexity, reward_amount, target_delta)
 (int, int, int, int) get_pow_params() method_id {
+  storage::load();
+  return (storage::seed, storage::pow_complexity, storage::reward_amount, storage::target_delta);
+}
 
-    var ds = get_data().begin_parse();
-  var (owner_addr, jwall_addr) = (ds~load_msg_addr(), ds~load_msg_addr());
-  var params = ds~load_ref().begin_parse();
-  var (seed, pow_complexity) = (params~load_uint(128), params~load_uint(256));
-  params~load_uint(64); ;; last_success
-  int target_delta = params~load_uint(64);
-  return (seed, pow_complexity, 0x174876e800, target_delta);
+slice get_jetton_wallet_address() method_id {
+  var ds = get_data().begin_parse();
+  ds~load_msg_addr(); ;; owner_addr
+  return ds~load_msg_addr();
+}
+
+int get_reward_amount() method_id {
+  storage::load();
+  return storage::reward_amount;
+}
+
+(int, int, int, int, int, int) get_mining_config() method_id {
+  storage::load();
+  return (storage::seed, storage::pow_complexity, storage::target_delta, storage::min_cpl, storage::max_cpl, storage::reward_amount);
+}
+
+(slice, slice, int, int, int, int, int, int, int) get_miner_data() method_id {
+  storage::load();
+  return (storage::owner_addr, storage::jwall_addr, storage::seed, storage::pow_complexity, storage::last_success, storage::target_delta, storage::min_cpl, storage::max_cpl, storage::reward_amount);
 }

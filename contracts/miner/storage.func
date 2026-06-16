@@ -8,6 +8,9 @@ global int      storage::last_success;
 global int      storage::target_delta;
 global int      storage::min_cpl;
 global int      storage::max_cpl;
+global int      storage::reward_amount;
+
+const int storage::default_reward_amount = 100000000;
 
 () storage::load() impure inline {
     slice ds = get_data().begin_parse();
@@ -26,6 +29,9 @@ global int      storage::max_cpl;
     storage::min_cpl        = params~load_uint(8);
     storage::max_cpl        = params~load_uint(8);
 
+    (int remaining_bits, _) = slice_bits_refs(params);
+    storage::reward_amount  = remaining_bits > 0 ? params~load_coins() : storage::default_reward_amount;
+
     params.end_parse();
     ds.end_parse();
 }
@@ -43,6 +49,7 @@ global int      storage::max_cpl;
             ;; --------------------------------------
             .store_uint(storage::min_cpl, 8)
             .store_uint(storage::max_cpl, 8)
+            .store_coins(storage::reward_amount)
         .end_cell());
 
     set_data(storage.end_cell());

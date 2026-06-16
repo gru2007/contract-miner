@@ -11,10 +11,16 @@ PROGRAM{
   DECLPROC handle_int::change_settings
   DECLPROC handle_int::transfer_notification
   DECLPROC handle_int::update
+  DECLPROC send_tons
+  DECLPROC handle_int::withdraw_ton
   DECLPROC recv_internal
   DECLPROC recv_external
   85143 DECLMETHOD seqno
   101616 DECLMETHOD get_pow_params
+  89632 DECLMETHOD get_jetton_wallet_address
+  75119 DECLMETHOD get_reward_amount
+  112478 DECLMETHOD get_mining_config
+  129803 DECLMETHOD get_miner_data
   DECLGLOBVAR storage::owner_addr
   DECLGLOBVAR storage::jwall_addr
   DECLGLOBVAR storage::seed
@@ -23,6 +29,7 @@ PROGRAM{
   DECLGLOBVAR storage::target_delta
   DECLGLOBVAR storage::min_cpl
   DECLGLOBVAR storage::max_cpl
+  DECLGLOBVAR storage::reward_amount
   extlib::addrsmpl? PROCINLINE:<{
     3 PLDSLICE
     <b b{100} s, b> <s PUSHSLICE
@@ -76,6 +83,18 @@ PROGRAM{
     8 LDU
     SWAP
     storage::max_cpl SETGLOB
+    DUP
+    SBITREFS
+    DROP
+    0 GTINT
+    IF:<{
+      LDGRAMS
+    }>ELSE<{
+      100000000 PUSHINT
+      SWAP
+    }>
+    SWAP
+    storage::reward_amount SETGLOB
     ENDS
     ENDS
   }>
@@ -93,6 +112,8 @@ PROGRAM{
     64 STU
     8 STU
     8 STU
+    storage::reward_amount GETGLOB
+    STGRAMS
     ENDC
     NEWC
     storage::owner_addr GETGLOB
@@ -143,28 +164,67 @@ PROGRAM{
     SENDRAWMSG
   }>
   handle_int::mine PROCREF:<{
+    NIP
     2003 PUSHINT
     OVER
     190000000 PUSHINT
     GEQ
     THROWANYIFNOT
-    2001 PUSHINT
-    storage::pow_complexity GETGLOB
-    s1 s3 XCHG
-    LESS
-    s1 s2 XCHG
-    THROWANYIFNOT
     s0 s2 XCHG
     8 LDI
-    NIP
     32 LDU
     256 LDU
-    NIP
     256 LDU
     128 LDU
     256 LDU
+    DUP
+    SBITREFS
+    0 GTINT
+    IF:<{
+      DROP
+      s7 POP
+      s0 s6 XCHG
+      LDREF
+      SWAP
+      CTOS
+      LDMSGADDR
+      ENDS
+    }>ELSE<{
+      0 GTINT
+      IF:<{
+        s7 POP
+        s0 s6 XCHG
+        LDMSGADDR
+        s1 s7 XCHG
+      }>
+      s0 s7 XCHG2
+    }>
+    SWAP
     ENDS
-    s0 s3 XCHG
+    0x4d696e65 PUSHINT
+    NEWC
+    32 STU
+    s1 s6 XCHG
+    8 STI
+    s4 s(-1) PUXC
+    32 STU
+    s1 s3 XCHG
+    256 STU
+    s1 s(-1) PUXC
+    256 STU
+    s2 s(-1) PUXC
+    128 STU
+    s5 s(-1) PUXC
+    256 STU
+    ENDC
+    CTOS
+    HASHSU
+    2001 PUSHINT
+    storage::pow_complexity GETGLOB
+    s1 s2 XCHG
+    LESS
+    THROWANYIFNOT
+    s0 s2 XCHG
     NOW
     SUB
     10 PUSHINT
@@ -174,15 +234,16 @@ PROGRAM{
     storage::seed GETGLOB
     s1 s2 XCHG
     EQUAL
-    s2 s3 PUXC
+    s2 s4 PUXC
     EQUAL
-    s1 s3 XCHG
+    s1 s4 XCHG
     AND
-    s1 s2 XCHG
+    s1 s3 XCHG
     THROWANYIFNOT
     ACCEPT
     LTIME
     ADDRAND
+    SWAP
     ADDRAND
     NOW
     storage::last_success GETGLOB
@@ -217,14 +278,14 @@ PROGRAM{
     OVER
     10 PUSHINT
     DIV
+    storage::save INLINECALLDICT
     COMMIT
-    s0 s2 XCHG
-    100000000 PUSHINT
-    s0 s3 XCHG
+    storage::reward_amount GETGLOB
+    s3 s3 XCHG2
     SUB
     s1 s2 XCHG
     send_tokens CALLDICT
-    storage::exit_save INLINECALLDICT
+    0 THROW
   }>
   handle_int::change_settings PROCREF:<{
     1003 PUSHINT
@@ -297,6 +358,33 @@ PROGRAM{
     c4 POP
     SETCODE
   }>
+  send_tons PROC:<{
+    0 PUSHINT
+    24 PUSHINT
+    NEWC
+    6 STU
+    s0 s3 XCHG2
+    STSLICER
+    SWAP
+    STGRAMS
+    107 STU
+    ENDC
+    0 PUSHINT
+    SENDRAWMSG
+  }>
+  handle_int::withdraw_ton PROCREF:<{
+    1003 PUSHINT
+    storage::owner_addr GETGLOB
+    s1 s2 XCHG
+    SDEQ
+    THROWANYIFNOT
+    64 LDU
+    NIP
+    LDMSGADDR
+    LDGRAMS
+    ENDS
+    send_tons CALLDICT
+  }>
   recv_internal PROC:<{
     s3 POP
     CTOS
@@ -347,6 +435,13 @@ PROGRAM{
       1 2 BLKDROP2
       handle_int::change_settings INLINECALLDICT
     }>
+    105 PUSHINT
+    s3 s(-1) PUXC
+    EQUAL
+    IFJMP:<{
+      1 2 BLKDROP2
+      handle_int::withdraw_ton INLINECALLDICT
+    }>
     s2 PUSH
     621336170 PUSHINT
     EQUAL
@@ -373,22 +468,43 @@ PROGRAM{
     32 PLDU
   }>
   get_pow_params PROC:<{
+    storage::load INLINECALLDICT
+    storage::seed GETGLOB
+    storage::pow_complexity GETGLOB
+    storage::reward_amount GETGLOB
+    storage::target_delta GETGLOB
+  }>
+  get_jetton_wallet_address PROC:<{
     c4 PUSH
     CTOS
     LDMSGADDR
     NIP
     LDMSGADDR
-    NIP
-    LDREF
     DROP
-    CTOS
-    128 LDU
-    256 LDU
-    64 LDU
-    NIP
-    64 LDU
-    DROP
-    100000000000 PUSHINT
-    SWAP
+  }>
+  get_reward_amount PROC:<{
+    storage::load INLINECALLDICT
+    storage::reward_amount GETGLOB
+  }>
+  get_mining_config PROC:<{
+    storage::load INLINECALLDICT
+    storage::seed GETGLOB
+    storage::pow_complexity GETGLOB
+    storage::target_delta GETGLOB
+    storage::min_cpl GETGLOB
+    storage::max_cpl GETGLOB
+    storage::reward_amount GETGLOB
+  }>
+  get_miner_data PROC:<{
+    storage::load INLINECALLDICT
+    storage::owner_addr GETGLOB
+    storage::jwall_addr GETGLOB
+    storage::seed GETGLOB
+    storage::pow_complexity GETGLOB
+    storage::last_success GETGLOB
+    storage::target_delta GETGLOB
+    storage::min_cpl GETGLOB
+    storage::max_cpl GETGLOB
+    storage::reward_amount GETGLOB
   }>
 }END>c

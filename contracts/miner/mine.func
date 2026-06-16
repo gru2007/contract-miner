@@ -1,6 +1,5 @@
 int ufits(int x, int bits) impure asm "UFITSX";
 
-const int mine::reward_amount = 100000000;
 const int mine::min_msg_value = 190000000;
 
 ;; thanks gusarich airdrop
@@ -25,9 +24,8 @@ const int mine::min_msg_value = 190000000;
 
 () handle_int::mine(slice cs, slice sender_addr, int body_hash, int msg_value) impure inline_ref {
     throw_unless(err::not_enough_mine_gas(), msg_value >= mine::min_msg_value);
-    throw_unless(err::pow_not_solved(), body_hash < storage::pow_complexity);
 
-    ;; op was already consumed by recv_internal; flags and whom are currently unused.
+    ;; op was already consumed by recv_internal; flags and whom are legacy pow-miner fields.
     (int flags, int expire, int whom, int rdata1, int rseed, int rdata2) = (
         cs~load_int(8),     ;; flags
         cs~load_uint(32),   ;; expire
@@ -37,7 +35,29 @@ const int mine::min_msg_value = 190000000;
         cs~load_uint(256)   ;; rdata2
     );
 
+    slice recipient = sender_addr;
+    (int remaining_bits, int remaining_refs) = slice_bits_refs(cs);
+    if (remaining_refs > 0) {
+        slice recipient_ref = cs~load_ref().begin_parse();
+        recipient = recipient_ref~load_msg_addr();
+        recipient_ref.end_parse();
+    } elseif (remaining_bits > 0) {
+        recipient = cs~load_msg_addr();
+    }
     cs.end_parse();
+
+    ;; Optional recipient is intentionally outside this hash to keep legacy mining bodies valid.
+    body_hash = slice_hash(begin_cell()
+        .store_uint(op::mine(), 32)
+        .store_int(flags, 8)
+        .store_uint(expire, 32)
+        .store_uint(whom, 256)
+        .store_uint(rdata1, 256)
+        .store_uint(rseed, 128)
+        .store_uint(rdata2, 256)
+    .end_cell().begin_parse());
+
+    throw_unless(err::pow_not_solved(), body_hash < storage::pow_complexity);
 
     ufits(expire - now(), 10);
     throw_unless(
@@ -71,9 +91,10 @@ const int mine::min_msg_value = 190000000;
 
     int keep_amount = msg_value / 10;
 
+    storage::save();
     commit();
 
-    send_tokens(sender_addr, mine::reward_amount, msg_value - keep_amount);
+    send_tokens(recipient, storage::reward_amount, msg_value - keep_amount);
 
-    storage::exit_save();
+    throw(0);
 }

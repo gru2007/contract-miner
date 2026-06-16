@@ -14,7 +14,6 @@ export async function run(provider: NetworkProvider) {
     const MinerContract: OpenedContract<Miner> = provider.open(Miner.createFromAddress(minerAddr.address));
 
     const adminAddr = await promptUserFriendlyAddress("Enter the address of the owner", ui, true);
-	const jettonWallet = await promptUserFriendlyAddress("Enter the address of the jetton wallet", ui, true);
     const now = BigInt(Math.floor(Date.now() / 1000));
     
 
@@ -23,7 +22,7 @@ export async function run(provider: NetworkProvider) {
         MinerCodeRaw,
         // Miner data Cell stores owner_addr and jwall_addr in the root cell, then all PoW params in one ref:
         // owner_addr: MsgAddress - admin address allowed to change settings / upgrade the miner.
-        // jwall_addr: MsgAddress - jetton wallet address owned by this miner; rewards are sent from it.
+        // jwall_addr: MsgAddress - auto-detected from first jetton transfer_notification when null.
         // seed: uint128 - current PoW challenge seed returned by get_pow_params(); choose any random non-zero
         //   128-bit value for deploy/upgrade. Miners must use the current on-chain seed; after each successful
         //   mine the contract replaces it with a new random seed, so this is not a difficulty knob. Use bigint
@@ -44,7 +43,7 @@ export async function run(provider: NetworkProvider) {
         //   allowed target after retargeting.
         minerConfigToCell({
                 owner_addr: adminAddr.address,
-			    jwall_addr: jettonWallet.address,
+			    jwall_addr: null,
 			    seed: 0x95b9ba60cd32d91a3255029230f8584fn,
 			    pow_complexity: 1n << 248n,
 			    last_success: now,
