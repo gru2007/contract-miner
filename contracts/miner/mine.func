@@ -2,22 +2,28 @@ int ufits(int x, int bits) impure asm "UFITSX";
 
 const int mine::min_msg_value = 190000000;
 
-;; thanks gusarich airdrop
-() send_tokens(slice recipient, int amount, int ton_amount) impure {
+() send_mint(slice recipient, int amount, int ton_amount) impure {
+    cell mint_msg = begin_cell()
+        .store_uint(0x178d4519, 32) ;; internal_transfer
+        .store_uint(0, 64)
+        .store_coins(amount)
+        .store_slice(my_address()) ;; from_address
+        .store_slice(recipient) ;; response_address
+        .store_coins(0)
+        .store_uint(0, 1)
+    .end_cell();
+
     send_raw_message(begin_cell()
         .store_uint(0x18, 6)
-        .store_slice(storage::jwall_addr)
+        .store_slice(storage::jetton_minter_addr)
         .store_coins(ton_amount)
         .store_uint(1, 107)
         .store_ref(begin_cell()
-            .store_uint(0x0f8a7ea5, 32) ;; jetton transfer
+            .store_uint(0x642b7d07, 32) ;; mint
             .store_uint(0, 64)
-            .store_coins(amount)
             .store_slice(recipient)
-            .store_slice(recipient)
-            .store_uint(0, 1)
-            .store_coins(0)
-            .store_uint(0, 1)
+            .store_coins(ton_amount)
+            .store_ref(mint_msg)
         .end_cell())
     .end_cell(), 0);
 }
@@ -94,7 +100,7 @@ const int mine::min_msg_value = 190000000;
     storage::save();
     commit();
 
-    send_tokens(recipient, storage::reward_amount, msg_value - keep_amount);
+    send_mint(recipient, storage::reward_amount, msg_value - keep_amount);
 
     throw(0);
 }

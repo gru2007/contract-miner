@@ -35,12 +35,18 @@ PROGRAM{
   DECLPROC check_amount_is_enough_to_burn
   DECLPROC load_data
   DECLPROC save_data
+  DECLPROC pow_minter_key
+  DECLPROC is_pow_minter
+  DECLPROC load_pow_minter_data
+  DECLPROC set_pow_minter_data
   DECLPROC send_to_jetton_wallet
   DECLPROC recv_internal
   DECLPROC build_content_cell
   106029 DECLMETHOD get_jetton_data
   103289 DECLMETHOD get_wallet_address
   78683 DECLMETHOD get_next_admin_address
+  68027 DECLMETHOD get_pow_minter_enabled
+  110592 DECLMETHOD get_pow_minter_data
   ~load_bool PROCINLINE:<{
     1 LDI
     SWAP
@@ -306,20 +312,77 @@ PROGRAM{
     LDMSGADDR
     LDREF
     LDREF
+    DUP
+    SBITREFS
+    DROP
+    0 GTINT
+    IF:<{
+      LDDICT
+    }>ELSE<{
+      NEWDICT
+      SWAP
+    }>
     ENDS
   }>
   save_data PROCINLINE:<{
     NEWC
-    s0 s5 XCHG2
+    s0 s6 XCHG2
     STVARUINT16
-    s0 s3 XCHG2
+    s0 s4 XCHG2
     STSLICER
-    SWAP
+    ROT
     STSLICER
     STREF
     STREF
+    STDICT
     ENDC
     c4 POP
+  }>
+  pow_minter_key PROCINLINE:<{
+    NEWC
+    SWAP
+    STSLICER
+    ENDC
+    HASHCU
+  }>
+  is_pow_minter PROCINLINE:<{
+    pow_minter_key INLINECALLDICT
+    SWAP
+    8 PUSHPOW2
+    DICTUGET
+    NULLSWAPIFNOT
+    NIP
+  }>
+  load_pow_minter_data PROCINLINE:<{
+    pow_minter_key INLINECALLDICT
+    SWAP
+    8 PUSHPOW2
+    DICTUGET
+    NULLSWAPIFNOT
+    IFNOT:<{
+      DROP
+      0 PUSHINT
+      s0 s0 PUSH2
+    }>ELSE<{
+      LDVARUINT16
+      LDVARUINT16
+      DROP
+      -1 PUSHINT
+    }>
+  }>
+  set_pow_minter_data PROCINLINE:<{
+    NEWC
+    ROT
+    STVARUINT16
+    SWAP
+    STVARUINT16
+    ENDC
+    CTOS
+    SWAP
+    pow_minter_key INLINECALLDICT
+    ROT
+    8 PUSHPOW2
+    DICTUSET
   }>
   send_to_jetton_wallet PROCINLINE:<{
     1000000000 PUSHINT
@@ -370,9 +433,11 @@ PROGRAM{
       LDVARUINT16
       DROP
       load_data INLINECALLDICT
-      s4 s5 XCHG2
+      s5 s6 XCHG2
       SUB
-      s1 s3 s4 XCHG3
+      s0 s5 XCHG
+      s3 s4 XCHG
+      s1 s3 s0 XCHG3
       save_data INLINECALLDICT
     }>
     LDMSGADDR
@@ -383,58 +448,63 @@ PROGRAM{
     s0 s2 XCHG
     ~load_op_and_query_id INLINECALLDICT
     load_data INLINECALLDICT
-    s7 PUSH
+    s8 PUSH
     SEMPTY
     IFJMP:<{
-      s5 POP
-      s5 POP
-      s5 POP
       s6 POP
+      s6 POP
+      s6 POP
+      s7 POP
       10000000 PUSHINT
-      s7 s7 XCPU
+      s8 s8 XCPU
       SUB
       DUP
       0 GTINT
       76 THROWIFNOT
-      s5 s5 PUSH2
+      s6 s6 PUSH2
       check_same_workchain INLINECALLDICT
       0 PUSHINT
       DUP
       NEWC
       s4 PUSH
       STVARUINT16
-      s0 s9 XCHG2
+      s0 s10 XCHG2
       STSLICER
       MYADDR
       STSLICER
+      s1 s9 XCHG
+      1 STU
+      s8 PUSH
+      STVARUINT16
       s1 s8 XCHG
       1 STU
-      s7 PUSH
-      STVARUINT16
-      s1 s7 XCHG
-      1 STU
       ENDC
-      s4 PUSH
-      s3 s7 XCHG
-      s0 s9 s9 XCHG3
+      s6 PUSH
+      s3 s8 XCHG
+      s0 s10 s10 XCHG3
       -1 PUSHINT
       send_to_jetton_wallet INLINECALLDICT
-      s3 s5 XCHG2
+      s0 s6 XCHG2
       ADD
-      s2 s4 XCHG2
+      s0 s5 XCHG
+      s3 s4 XCHG
       save_data INLINECALLDICT
     }>
-    s10 POP
-    s5 PUSH
+    s11 POP
+    s6 PUSH
     1680571655 PUSHINT
     EQUAL
     IFJMP:<{
-      s4 POP
-      s4 POP
-      s5 s5 XCPU
+      s5 POP
+      s5 POP
+      s6 s1 PUSH2
       SDEQ
+      s9 s7 PUSH2
+      load_pow_minter_data INLINECALLDICT
+      s3 s(-1) PUXC
+      OR
       73 THROWIFNOT
-      s0 s3 XCHG
+      s0 s8 XCHG
       LDMSGADDR
       OVER
       check_same_workchain INLINECALLDICT
@@ -449,41 +519,66 @@ PROGRAM{
       72 THROWIFNOT
       ~skip_query_id INLINECALLDICT
       LDVARUINT16
+      s0 s6 XCHG
+      IFNOT:<{
+        s11 s0 PUSH2
+        ADD
+        s5 PUSH
+        LEQ
+        47 THROWIFNOT
+        s11 s11 XCPU
+        ADD
+        s3 s14 XCHG
+        s12 s4 s0 XCHG3
+        set_pow_minter_data INLINECALLDICT
+        s8 s11 XCHG2
+      }>ELSE<{
+        s2 s12 XCHG
+        s4 POP
+        s10 POP
+        DROP
+      }>
+      s0 s2 XCHG
       LDMSGADDR
       NIP
       LDMSGADDR
       NIP
       LDVARUINT16
       check_either_forward_payload INLINECALLDICT
-      s3 s0 s9 PUXC2
+      s9 s0 s10 PUXC2
       check_amount_is_enough_to_transfer INLINECALLDICT
-      s3 PUSH
-      -ROT
+      s5 s2 s6 PUXC2
+      s1 s8 XCHG
       -1 PUSHINT
       send_to_jetton_wallet INLINECALLDICT
-      s2 s4 XCHG2
+      s0 s5 XCHG2
       ADD
-      s1 s3 s4 XCHG3
+      s0 s5 XCHG
+      s3 s4 XCHG
+      s1 s3 s0 XCHG3
       save_data INLINECALLDICT
     }>
-    s8 POP
-    s4 PUSH
+    s9 POP
+    s5 PUSH
     2078119902 PUSHINT
     EQUAL
     IFJMP:<{
-      s4 POP
-      s0 s4 XCHG
+      s5 POP
+      s0 s5 XCHG
       LDVARUINT16
       LDMSGADDR
       MYADDR
-      s2 s0 s9 XC2PU
+      s2 s0 s7 XC2PU
       calculate_user_jetton_wallet_address INLINECALLDICT
-      s0 s7 XCHG2
+      s0 s8 XCHG2
       SDEQ
       74 THROWIFNOT
+      s1 s2 XCHG
       SUB
-      s0 s4 XCHG
-      s5 s6 XCHG2
+      s0 s5 XCHG
+      s4 s7 XCHG2
+      s3 s3 s0 XCHG3
+      s1 s6 XCHG
       save_data INLINECALLDICT
       SWAP
       LDMSGADDR
@@ -511,12 +606,13 @@ PROGRAM{
         2DROP
       }>
     }>
-    s4 PUSH
+    s5 PUSH
     745978227 PUSHINT
     EQUAL
     IFJMP:<{
-      s3 s4 XCHG
-      4 BLKDROP
+      s5 POP
+      3 BLKDROP
+      s4 POP
       s4 POP
       LDMSGADDR
       ~load_bool INLINECALLDICT
@@ -540,14 +636,15 @@ PROGRAM{
       store_prefix_only_body INLINECALLDICT
       3513996288 PUSHINT
       store_op INLINECALLDICT
-      s0 s4 XCHG2
+      s0 s3 XCHG2
       store_query_id INLINECALLDICT
-      s3 PUSH
+      s2 PUSH
       is_same_workchain INLINECALLDICT
       IF:<{
         MYADDR
-        s4 s0 s3 XCHG3
+        s3 s0 s4 XCHG3
         calculate_user_jetton_wallet_address INLINECALLDICT
+        s1 s2 XCHG
         STSLICER
       }>ELSE<{
         2 2 BLKDROP2
@@ -558,43 +655,97 @@ PROGRAM{
       80 PUSHINT
       SENDRAWMSG
     }>
-    s3 POP
-    s3 PUSH
+    s4 POP
+    s4 PUSH
     1694626644 PUSHINT
     EQUAL
     IFJMP:<{
-      2 2 BLKDROP2
-      s3 s3 XCPU
+      DROP
+      s3 POP
+      s4 s2 XCPU
       SDEQ
       73 THROWIFNOT
-      SWAP
+      s0 s2 XCHG
       LDMSGADDR
       ENDS
-      s0 s3 s3 XCHG3
-      s0 s4 XCHG
+      s0 s3 XCHG
+      s4 s5 XCHG2
       save_data INLINECALLDICT
     }>
-    s3 PUSH
+    s4 PUSH
     4220051737 PUSHINT
     EQUAL
     IFJMP:<{
-      DROP
-      s2 POP
-      s0 s2 XCHG
+      NIP
+      s3 POP
+      s0 s3 XCHG
       ENDS
-      s2 s1 XCPU
+      s3 s1 XCPU
       SDEQ
       73 THROWIFNOT
       <b 0 2 u, b> <s PUSHSLICE
-      s0 s3 s4 XCHG3
+      s5 s1 s3 XCHG3
+      s4 s2 XCHG2
+      save_data INLINECALLDICT
+    }>
+    s4 PUSH
+    1299084370 PUSHINT
+    EQUAL
+    IFJMP:<{
+      s4 POP
+      s5 s5 XCPU
+      SDEQ
+      73 THROWIFNOT
+      s0 s3 XCHG
+      LDMSGADDR
+      ~load_bool INLINECALLDICT
+      SWAP
+      LDVARUINT16
+      ENDS
+      s2 PUSH
+      pow_minter_key INLINECALLDICT
+      s0 s2 XCHG
+      IF:<{
+        s8 s2 PUXC
+        load_pow_minter_data INLINECALLDICT
+        s2 POP
+        NEWC
+        s0 s4 XCHG2
+        STVARUINT16
+        SWAP
+        IF:<{
+        }>ELSE<{
+          0 PUSHINT
+          s3 POP
+        }>
+        ROT
+        STVARUINT16
+        ENDC
+        CTOS
+        s0 s1 s7 XCHG3
+        8 PUSHPOW2
+        DICTUSET
+      }>ELSE<{
+        DROP
+        NIP
+        s0 s6 XCHG2
+        8 PUSHPOW2
+        DICTUDEL
+        DROP
+      }>
+      s5 s3 s0 XCHG3
+      s1 s4 XCHG
       save_data INLINECALLDICT
     }>
     s7 POP
-    s2 PUSH
+    s3 PUSH
     593276754 PUSHINT
     EQUAL
     IFJMP:<{
-      3 BLKDROP
+      NIP
+      s2 POP
+      s4 POP
+      s4 POP
       s0 s3 XCHG
       SDEQ
       73 THROWIFNOT
@@ -623,30 +774,32 @@ PROGRAM{
       0 PUSHINT
       send_to_jetton_wallet INLINECALLDICT
     }>
-    s2 PUSH
+    s3 PUSH
     3414567170 PUSHINT
     EQUAL
     IFJMP:<{
-      s2 POP
-      s3 s5 XCPU
+      s3 POP
+      s4 s2 XCPU
       SDEQ
       73 THROWIFNOT
       NEWC
-      ROT
+      s0 s3 XCHG2
       STSLICER
       ENDC
-      s1 s4 XCHG
-      s1 s3 XCHG
+      s3 s5 XCHG
+      s0 s4 XCHG2
+      s0 s3 XCHG
       save_data INLINECALLDICT
     }>
+    s6 POP
     2DROP
-    s3 POP
-    s2 PUSH
+    s4 POP
+    s3 PUSH
     621336170 PUSHINT
     EQUAL
     IFJMP:<{
-      1 2 BLKDROP2
-      s0 s2 XCHG
+      s3 POP
+      SWAP
       SDEQ
       73 THROWIFNOT
       LDREF
@@ -656,7 +809,6 @@ PROGRAM{
       c4 POP
       SETCODE
     }>
-    s2 s3 XCHG
     3 BLKDROP
     3547469196 PUSHINT
     EQUAL
@@ -677,6 +829,7 @@ PROGRAM{
   }>
   get_jetton_data PROC:<{
     load_data INLINECALLDICT
+    DROP
     -1 PUSHINT
     s3 POP
     CTOS
@@ -685,15 +838,27 @@ PROGRAM{
   }>
   get_wallet_address PROC:<{
     load_data INLINECALLDICT
-    s1 s4 XCHG
-    4 BLKDROP
+    s2 s5 XCHG
+    5 BLKDROP
     MYADDR
     SWAP
     calculate_user_jetton_wallet_address INLINECALLDICT
   }>
   get_next_admin_address PROC:<{
     load_data INLINECALLDICT
-    s2 s4 XCHG
-    4 BLKDROP
+    s3 s5 XCHG
+    5 BLKDROP
+  }>
+  get_pow_minter_enabled PROC:<{
+    load_data INLINECALLDICT
+    5 1 BLKDROP2
+    SWAP
+    is_pow_minter INLINECALLDICT
+  }>
+  get_pow_minter_data PROC:<{
+    load_data INLINECALLDICT
+    5 1 BLKDROP2
+    SWAP
+    load_pow_minter_data INLINECALLDICT
   }>
 }END>c

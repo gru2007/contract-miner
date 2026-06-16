@@ -110,6 +110,12 @@ slice get_jetton_wallet_address() method_id {
   return ds~load_msg_addr();
 }
 
+slice get_jetton_minter_address() method_id {
+  var ds = get_data().begin_parse();
+  ds~load_msg_addr(); ;; owner_addr
+  return ds~load_msg_addr();
+}
+
 int get_reward_amount() method_id {
   storage::load();
   return storage::reward_amount;
@@ -122,5 +128,5 @@ int get_reward_amount() method_id {
 
 (slice, slice, int, int, int, int, int, int, int) get_miner_data() method_id {
   storage::load();
-  return (storage::owner_addr, storage::jwall_addr, storage::seed, storage::pow_complexity, storage::last_success, storage::target_delta, storage::min_cpl, storage::max_cpl, storage::reward_amount);
+  return (storage::owner_addr, storage::jetton_minter_addr, storage::seed, storage::pow_complexity, storage::last_success, storage::target_delta, storage::min_cpl, storage::max_cpl, storage::reward_amount);
 }

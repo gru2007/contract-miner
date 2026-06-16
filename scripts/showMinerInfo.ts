@@ -1,5 +1,6 @@
 import { fromNano } from '@ton/core';
 import { NetworkProvider } from '@ton/blueprint';
+import { JettonMinter } from '../wrappers/JettonMinter';
 import { Miner } from '../wrappers/Miner';
 import { promptUserFriendlyAddress } from '../wrappers/ui-utils';
 import { compactAddress, formatTargetBits, getContractBalance } from './scriptUtils';
@@ -23,13 +24,20 @@ export async function run(provider: NetworkProvider) {
     try {
         const data = await miner.getMinerData();
         ui.write(`Owner: ${compactAddress(data.ownerAddress, isTestnet)}`);
-        ui.write(`Jetton wallet: ${compactAddress(data.jettonWalletAddress, isTestnet)}`);
+        ui.write(`Jetton minter: ${compactAddress(data.jettonMinterAddress, isTestnet)}`);
         ui.write(`Seed: ${data.seed.toString()}`);
         ui.write(`PoW complexity: ${data.powComplexity.toString()} (${formatTargetBits(data.powComplexity)})`);
         ui.write(`Last success: ${data.lastSuccess.toString()}`);
         ui.write(`Target delta: ${data.targetDelta.toString()} sec`);
         ui.write(`min_cpl/max_cpl: ${data.minCpl.toString()} / ${data.maxCpl.toString()}`);
         ui.write(`Reward amount: ${data.rewardAmount.toString()} base units`);
+        if (!data.jettonMinterAddress) {
+            return;
+        }
+        const minter = provider.open(JettonMinter.createFromAddress(data.jettonMinterAddress));
+        const powMinterData = await minter.getPowMinterData(miner.address);
+        ui.write(`PoW minter enabled: ${powMinterData.enabled ? 'yes' : 'no'}`);
+        ui.write(`PoW minter cap/mined: ${powMinterData.cap.toString()} / ${powMinterData.mined.toString()} base units`);
     } catch (e: any) {
         ui.write(`get_miner_data failed: ${e.message ?? e}`);
         const pow = await miner.getPowParams();

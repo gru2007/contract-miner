@@ -1,5 +1,5 @@
 global slice    storage::owner_addr;
-global slice    storage::jwall_addr;
+global slice    storage::jetton_minter_addr;
 
 global int      storage::seed;
 global int      storage::pow_complexity;
@@ -16,7 +16,7 @@ const int storage::default_reward_amount = 100000000;
     slice ds = get_data().begin_parse();
 
     storage::owner_addr     = ds~load_msg_addr();
-    storage::jwall_addr     = ds~load_msg_addr();
+    storage::jetton_minter_addr = ds~load_msg_addr();
 
     slice params            = ds~load_ref().begin_parse();
 
@@ -39,7 +39,7 @@ const int storage::default_reward_amount = 100000000;
 () storage::save() impure inline { 
     builder storage = begin_cell()
         .store_slice(storage::owner_addr)
-        .store_slice(storage::jwall_addr)
+        .store_slice(storage::jetton_minter_addr)
         .store_ref(begin_cell()
             .store_uint(storage::seed, 128)
             .store_uint(storage::pow_complexity, 256)

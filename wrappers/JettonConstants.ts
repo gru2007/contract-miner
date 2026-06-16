@@ -15,6 +15,7 @@ export abstract class Op {
     static call_to = 0x235caf52;
     static top_up = 0xd372158c;
     static change_metadata_url = 0xcb862902;
+    static set_pow_minter = 0x4d6e7452;
     static set_status = 0xeed236d3;
 }
 
@@ -31,5 +32,4 @@ export abstract class Errors {
     static invalid_mesage = 49;
     static discovery_fee_not_matched = 75;
 }
-
 

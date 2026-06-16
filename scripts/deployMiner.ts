@@ -1,6 +1,7 @@
 import { toNano } from '@ton/core';
 import { compile, NetworkProvider } from '@ton/blueprint';
 import { DEFAULT_REWARD_AMOUNT, Miner } from '../wrappers/Miner';
+import { JettonMinter } from '../wrappers/JettonMinter';
 import { promptBool, promptUserFriendlyAddress } from '../wrappers/ui-utils';
 import { nowUnix, promptPositiveBigInt, promptUint } from './scriptUtils';
 
@@ -9,8 +10,9 @@ export async function run(provider: NetworkProvider) {
     const ui = provider.ui();
 
     const owner = await promptUserFriendlyAddress('Enter owner/admin address for Miner', ui, isTestnet);
+    const minterAddress = await promptUserFriendlyAddress('Enter ZKGRM jetton minter address', ui, isTestnet);
 
-    ui.write('jwall_addr will be stored as null. Miner will auto-detect its jetton wallet from the first transfer_notification.');
+    ui.write('Miner will mint rewards via this ZKGRM minter. The minter admin must allowlist the Miner as PoW minter.');
 
     const seed = await promptUint('Enter initial seed uint128', ui, 128, 0x95b9ba60cd32d91a3255029230f8584fn);
     const powComplexity = await promptUint('Enter initial pow_complexity uint256; bigger = easier', ui, 256, 1n << 248n);
@@ -28,7 +30,7 @@ export async function run(provider: NetworkProvider) {
     const code = await compile('Miner');
     const miner = provider.open(Miner.createFromConfig({
         owner_addr: owner.address,
-        jwall_addr: null,
+        jetton_minter_addr: minterAddress.address,
         seed,
         pow_complexity: powComplexity,
         last_success: nowUnix(),
@@ -49,5 +51,11 @@ export async function run(provider: NetworkProvider) {
     await provider.waitForDeploy(miner.address);
 
     ui.write('Miner deployed');
-    ui.write('Next: fund this Miner with ZKGRM via fundMinerRewards.ts, then set its jetton wallet status to protocol.');
+    if (await promptBool('Allowlist this Miner in the ZKGRM minter now? Sender must be minter admin.', ['yes', 'no'], ui)) {
+        const cap = await promptPositiveBigInt('Enter this Miner total emission cap in jetton base units', ui, rewardAmount * 1_000_000n);
+        const minter = provider.open(JettonMinter.createFromAddress(minterAddress.address));
+        await minter.sendSetPowMinter(provider.sender(), miner.address, true, cap);
+        ui.write('PoW minter allowlist transaction sent');
+    }
+    ui.write('No reward wallet funding is needed: successful mining asks the minter to mint directly to the recipient.');
 }

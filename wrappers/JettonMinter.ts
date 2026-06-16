@@ -26,7 +26,8 @@ export type JettonMinterConfigFull = {
     //Makes no sense to update transfer admin. ...Or is it?
     transfer_admin: Address | null,
     wallet_code: Cell,
-    jetton_content: Cell | JettonMinterContent
+    jetton_content: Cell | JettonMinterContent,
+    pow_minters?: Cell | null,
 }
 
 export type LockType = 'user' | 'protocol';
@@ -68,7 +69,8 @@ export function jettonMinterConfigCellToConfig(config: Cell): JettonMinterConfig
         admin: sc.loadAddress(),
         transfer_admin: sc.loadMaybeAddress(),
         wallet_code: sc.loadRef(),
-        jetton_content: sc.loadRef()
+        jetton_content: sc.loadRef(),
+        pow_minters: sc.remainingBits > 0 ? sc.loadMaybeRef() : null,
     };
     endParse(sc);
     return parsed;
@@ -86,6 +88,7 @@ export function jettonMinterConfigFullToCell(config: JettonMinterConfigFull): Ce
         .storeAddress(config.transfer_admin)
         .storeRef(config.wallet_code)
         .storeRef(content)
+        .storeMaybeRef(config.pow_minters ?? null)
         .endCell()
 }
 
@@ -97,6 +100,7 @@ export function jettonMinterConfigToCell(config: JettonMinterConfig): Cell {
         .storeAddress(null) // Transfer admin address
         .storeRef(config.wallet_code)
         .storeRef(content)
+        .storeMaybeRef(null)
         .endCell();
 }
 
@@ -353,6 +357,36 @@ export class JettonMinter implements Contract {
             body: JettonMinter.lockWalletMessage(lock_address, lockCmd, amount, query_id),
             value: amount + toNano('0.1')
         });
+    }
+
+    static setPowMinterMessage(minerAddress: Address, enabled: boolean, cap: bigint, query_id: bigint | number = 0) {
+        return beginCell().storeUint(Op.set_pow_minter, 32).storeUint(query_id, 64)
+            .storeAddress(minerAddress)
+            .storeBit(enabled)
+            .storeCoins(cap)
+            .endCell();
+    }
+
+    async sendSetPowMinter(provider: ContractProvider, via: Sender, minerAddress: Address, enabled: boolean, cap: bigint = 0n, value: bigint = toNano('0.05'), query_id: bigint | number = 0) {
+        return await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: JettonMinter.setPowMinterMessage(minerAddress, enabled, cap, query_id),
+            value,
+        });
+    }
+
+    async getPowMinterEnabled(provider: ContractProvider, minerAddress: Address) {
+        const { stack } = await provider.get('get_pow_minter_enabled', [{ type: 'slice', cell: beginCell().storeAddress(minerAddress).endCell() }]);
+        return stack.readNumber() !== 0;
+    }
+
+    async getPowMinterData(provider: ContractProvider, minerAddress: Address) {
+        const { stack } = await provider.get('get_pow_minter_data', [{ type: 'slice', cell: beginCell().storeAddress(minerAddress).endCell() }]);
+        return {
+            cap: stack.readBigNumber(),
+            mined: stack.readBigNumber(),
+            enabled: stack.readNumber() !== 0,
+        };
     }
 
     static parseTransfer(slice: Slice) {

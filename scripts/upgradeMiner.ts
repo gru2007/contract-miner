@@ -16,11 +16,11 @@ export async function run(provider: NetworkProvider) {
         current = await miner.getMinerData();
         ui.write('Current miner data loaded from get_miner_data. Empty prompts will preserve current values.');
         ui.write(`Owner: ${compactAddress(current.ownerAddress, isTestnet)}`);
-        ui.write(`Jetton wallet: ${compactAddress(current.jettonWalletAddress, isTestnet)}`);
+        ui.write(`Jetton minter: ${compactAddress(current.jettonMinterAddress, isTestnet)}`);
         ui.write(`Reward amount: ${current.rewardAmount.toString()}`);
     } catch (e: any) {
         ui.write(`Could not read get_miner_data, probably old contract code: ${e.message ?? e}`);
-        ui.write('You must enter full config manually. jwall_addr can be null for auto-detect.');
+        ui.write('You must enter full config manually. jetton_minter_addr is required for mint-on-mine.');
     }
 
     const owner = await promptOptionalAddress('Enter owner/admin address', ui, isTestnet, current?.ownerAddress ?? provider.sender().address ?? null);
@@ -29,7 +29,11 @@ export async function run(provider: NetworkProvider) {
         return;
     }
 
-    const jwall = await promptOptionalAddress('Enter stored jetton wallet address, or null for auto-detect', ui, isTestnet, current?.jettonWalletAddress ?? null);
+    const minterAddress = await promptOptionalAddress('Enter ZKGRM jetton minter address', ui, isTestnet, current?.jettonMinterAddress ?? null);
+    if (!minterAddress) {
+        ui.write('Jetton minter cannot be null');
+        return;
+    }
     const seed = await promptUint('Enter seed uint128', ui, 128, current?.seed ?? 0x95b9ba60cd32d91a3255029230f8584fn);
     const powComplexity = await promptUint('Enter pow_complexity uint256; bigger = easier', ui, 256, current?.powComplexity ?? (1n << 248n));
     const targetDelta = await promptPositiveBigInt('Enter target seconds between successful mines', ui, current?.targetDelta ?? 60n);
@@ -46,7 +50,7 @@ export async function run(provider: NetworkProvider) {
     const newCode = await compile('Miner');
     const newData = minerConfigToCell({
         owner_addr: owner,
-        jwall_addr: jwall,
+        jetton_minter_addr: minterAddress,
         seed,
         pow_complexity: powComplexity,
         last_success: current?.lastSuccess ?? nowUnix(),

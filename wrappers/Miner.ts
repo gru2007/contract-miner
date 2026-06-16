@@ -6,7 +6,8 @@ import {
 
 export type MinerConfig = {
     owner_addr: Address,
-    jwall_addr: Address | null,
+    jetton_minter_addr?: Address | null,
+    jwall_addr?: Address | null,
     seed: number | bigint,
     pow_complexity: number | bigint,
     last_success: number | bigint,
@@ -20,12 +21,12 @@ export const DEFAULT_REWARD_AMOUNT = 100000000n;
 
 export const GRM_GIVER_PRESETS = {
     extraSmall: {
-        count: 10,
+        count: 2,
         seed: 91364215591814176173860070590035324060n,
         pow_complexity: 411376139330301510538742295639337626245683966408394965837152256n,
         amount: 100000000000n,
         interval: 100n,
-    },
+    },/*
     small: {
         count: 10,
         seed: 110217239753205694903454587643682599146n,
@@ -46,7 +47,7 @@ export const GRM_GIVER_PRESETS = {
         pow_complexity: 52656145834278593348959013841835216159447547700274555627155488768n,
         amount: 100000000000000n,
         interval: 100000n,
-    },
+    },*/
 } as const;
 
 export abstract class Op {
@@ -72,7 +73,7 @@ export abstract class Op {
 export function minerConfigToCell(config: MinerConfig): Cell {
     return beginCell()
     .storeAddress(config.owner_addr)
-    .storeAddress(config.jwall_addr)
+    .storeAddress(config.jetton_minter_addr ?? config.jwall_addr ?? null)
     .storeRef(beginCell()
         .storeUint(config.seed, 128)
         .storeUint(config.pow_complexity, 256)
@@ -85,13 +86,13 @@ export function minerConfigToCell(config: MinerConfig): Cell {
     .endCell();
 }
 
-export function createGrmGiverConfigs(owner: Address, now: number | bigint, options?: { jwall_addr?: Address | null; min_cpl?: bigint; max_cpl?: bigint }) {
+export function createGrmGiverConfigs(owner: Address, now: number | bigint, options?: { jetton_minter_addr?: Address | null; jwall_addr?: Address | null; min_cpl?: bigint; max_cpl?: bigint }) {
     const configs: MinerConfig[] = [];
     for (const preset of Object.values(GRM_GIVER_PRESETS)) {
         for (let i = 0; i < preset.count; i++) {
             configs.push({
                 owner_addr: owner,
-                jwall_addr: options?.jwall_addr ?? null,
+                jetton_minter_addr: options?.jetton_minter_addr ?? options?.jwall_addr ?? null,
                 seed: (preset.seed + BigInt(i)) & ((1n << 128n) - 1n),
                 pow_complexity: preset.pow_complexity,
                 last_success: now,
@@ -255,6 +256,11 @@ export class Miner implements Contract {
         return stack.readAddressOpt();
     }
 
+    async getJettonMinterAddress(provider: ContractProvider) {
+        const { stack } = await provider.get('get_jetton_minter_address', []);
+        return stack.readAddressOpt();
+    }
+
     async getRewardAmount(provider: ContractProvider) {
         const { stack } = await provider.get('get_reward_amount', []);
         return stack.readBigNumber();
@@ -276,7 +282,7 @@ export class Miner implements Contract {
         const { stack } = await provider.get('get_miner_data', []);
         return {
             ownerAddress: stack.readAddress(),
-            jettonWalletAddress: stack.readAddressOpt(),
+            jettonMinterAddress: stack.readAddressOpt(),
             seed: stack.readBigNumber(),
             powComplexity: stack.readBigNumber(),
             lastSuccess: stack.readBigNumber(),

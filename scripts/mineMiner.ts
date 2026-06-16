@@ -20,16 +20,16 @@ async function findSolution(params: {
     maxAttempts: bigint;
     ui: UIProvider;
 }) {
-    let rseed = randomUint128();
+    let nonce = randomUint128();
 
     for (let attempt = 0n; attempt < params.maxAttempts; attempt++) {
-        const candidate = (rseed + attempt) & UINT128_MASK;
+        const candidate = (nonce + attempt) & UINT128_MASK;
         const bodyForHash = Miner.mineMessage({
             flags: params.flags,
             expire: params.expire,
             whom: params.whom,
-            rdata: params.seed,
-            rseed: candidate,
+            rdata: candidate,
+            rseed: params.seed,
             recipient: null,
         });
 
@@ -41,7 +41,7 @@ async function findSolution(params: {
 
         if (hash < params.powComplexity) {
             params.ui.clearActionPrompt();
-            return { rseed: candidate, hash, attempts: attempt + 1n };
+            return { rdata: candidate, rseed: params.seed, hash, attempts: attempt + 1n };
         }
     }
 
@@ -78,7 +78,7 @@ export async function run(provider: NetworkProvider) {
     const ttl = await promptPositiveBigInt('Enter proof TTL in seconds', ui, 600n);
     const expire = BigInt(Math.floor(Date.now() / 1000)) + ttl;
     const maxAttempts = await promptPositiveBigInt('Enter max local hash attempts', ui, 5000000n);
-    const value = await promptBigInt('Enter TON value to attach in nanotons', ui, toNano('0.25'));
+    const value = await promptBigInt('Enter TON value to attach in nanotons', ui, toNano('1.2'));
     const flags = 0;
     const whom = 0n;
 
@@ -99,6 +99,7 @@ export async function run(provider: NetworkProvider) {
     }
 
     ui.write(`Solution found after ${solution.attempts.toString()} attempts`);
+    ui.write(`rdata: ${solution.rdata.toString()}`);
     ui.write(`rseed: ${solution.rseed.toString()}`);
     ui.write(`hash: 0x${solution.hash.toString(16).padStart(64, '0')}`);
 
@@ -110,7 +111,7 @@ export async function run(provider: NetworkProvider) {
         flags,
         expire,
         whom,
-        rdata: pow.seed,
+        rdata: solution.rdata,
         rseed: solution.rseed,
         recipient,
     });

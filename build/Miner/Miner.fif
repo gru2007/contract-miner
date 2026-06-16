@@ -6,7 +6,7 @@ PROGRAM{
   DECLPROC storage::load
   DECLPROC storage::save
   DECLPROC storage::exit_save
-  DECLPROC send_tokens
+  DECLPROC send_mint
   DECLPROC handle_int::mine
   DECLPROC handle_int::change_settings
   DECLPROC handle_int::transfer_notification
@@ -18,11 +18,12 @@ PROGRAM{
   85143 DECLMETHOD seqno
   101616 DECLMETHOD get_pow_params
   89632 DECLMETHOD get_jetton_wallet_address
+  75253 DECLMETHOD get_jetton_minter_address
   75119 DECLMETHOD get_reward_amount
   112478 DECLMETHOD get_mining_config
   129803 DECLMETHOD get_miner_data
   DECLGLOBVAR storage::owner_addr
-  DECLGLOBVAR storage::jwall_addr
+  DECLGLOBVAR storage::jetton_minter_addr
   DECLGLOBVAR storage::seed
   DECLGLOBVAR storage::pow_complexity
   DECLGLOBVAR storage::last_success
@@ -61,7 +62,7 @@ PROGRAM{
     storage::owner_addr SETGLOB
     LDMSGADDR
     SWAP
-    storage::jwall_addr SETGLOB
+    storage::jetton_minter_addr SETGLOB
     LDREF
     SWAP
     CTOS
@@ -118,7 +119,7 @@ PROGRAM{
     NEWC
     storage::owner_addr GETGLOB
     STSLICER
-    storage::jwall_addr GETGLOB
+    storage::jetton_minter_addr GETGLOB
     STSLICER
     STREF
     ENDC
@@ -128,31 +129,41 @@ PROGRAM{
     storage::save INLINECALLDICT
     0 THROW
   }>
-  send_tokens PROC:<{
+  send_mint PROC:<{
     0 PUSHINT
-    s0 s0 PUSH2
-    260734629 PUSHINT
+    DUP
+    395134233 PUSHINT
     NEWC
     32 STU
     64 STU
-    s0 s4 XCHG2
+    s0 s3 XCHG2
     STGRAMS
-    s4 PUSH
+    MYADDR
     STSLICER
-    s0 s4 XCHG2
+    s3 PUSH
     STSLICER
-    s1 s2 XCHG
-    1 STU
     s2 PUSH
     STGRAMS
     s1 s2 XCHG
     1 STU
     ENDC
+    0 PUSHINT
+    1680571655 PUSHINT
+    NEWC
+    32 STU
+    64 STU
+    s0 s3 XCHG2
+    STSLICER
+    OVER
+    STGRAMS
+    s1 s2 XCHG
+    STREF
+    ENDC
     1 PUSHINT
     24 PUSHINT
     NEWC
     6 STU
-    storage::jwall_addr GETGLOB
+    storage::jetton_minter_addr GETGLOB
     STSLICER
     s0 s3 XCHG2
     STGRAMS
@@ -284,7 +295,7 @@ PROGRAM{
     s3 s3 XCHG2
     SUB
     s1 s2 XCHG
-    send_tokens CALLDICT
+    send_mint CALLDICT
     0 THROW
   }>
   handle_int::change_settings PROCREF:<{
@@ -331,11 +342,11 @@ PROGRAM{
     THROWANY
   }>
   handle_int::transfer_notification PROCREF:<{
-    storage::jwall_addr GETGLOB
+    storage::jetton_minter_addr GETGLOB
     <b b{00} s, b> <s PUSHSLICE
     SDEQ
     IF:<{
-      storage::jwall_addr SETGLOB
+      storage::jetton_minter_addr SETGLOB
       storage::exit_save INLINECALLDICT
     }>ELSE<{
       DROP
@@ -482,6 +493,14 @@ PROGRAM{
     LDMSGADDR
     DROP
   }>
+  get_jetton_minter_address PROC:<{
+    c4 PUSH
+    CTOS
+    LDMSGADDR
+    NIP
+    LDMSGADDR
+    DROP
+  }>
   get_reward_amount PROC:<{
     storage::load INLINECALLDICT
     storage::reward_amount GETGLOB
@@ -498,7 +517,7 @@ PROGRAM{
   get_miner_data PROC:<{
     storage::load INLINECALLDICT
     storage::owner_addr GETGLOB
-    storage::jwall_addr GETGLOB
+    storage::jetton_minter_addr GETGLOB
     storage::seed GETGLOB
     storage::pow_complexity GETGLOB
     storage::last_success GETGLOB
