@@ -286,7 +286,7 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
         return ();
     }
 
-    if (op == op::upgrade_code) { ;; ummmm... sometimes that breaks
+    if (op == op::upgrade_code) { ;; ummmm... sometimes that breaks above
         throw_unless(error::not_owner, equal_slices_bits(sender_address, admin_address));
         (cell new_data, cell new_code) = (in_msg_body~load_ref(), in_msg_body~load_ref());
         in_msg_body.end_parse();

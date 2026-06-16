@@ -785,6 +785,19 @@ PROGRAM{
       SETCODE
     }>
     DUP
+    106 EQINT
+    IFJMP:<{
+      DROP
+      s0 s2 XCHG
+      SDEQ
+      73 THROWIFNOT
+      LDREF
+      NIP
+      LDREF
+      ENDS
+      SETCODE
+    }>
+    DUP
     105 EQINT
     IFJMP:<{
       DROP
