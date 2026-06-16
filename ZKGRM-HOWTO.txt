@@ -7,3 +7,8 @@ We support new way of mining and old one. Docs will appear later.
 for now only extra small givers are avaliable - we will add more when will be ready:
 
 PLACEHOLDER
+
+
+---
+
+About ZK-Privacy. It will work throw https://zk.resistance.dog when multi-party trusted-setup ceremony will over
