@@ -40,7 +40,7 @@
 () send_policy_note(slice owner_address) impure inline_ref {
     cell msg_body = begin_cell()
     .store_uint(0, 32)
-    .store_slice("ZKGRM: transfer blocked. Use approved DEX/protocol flow.")
+    .store_slice("ZKGRM: transfer blocked. We support only private transfers via zk.resistance.dog and DEX flows.")
     .end_cell();
 
     cell msg = begin_cell()
