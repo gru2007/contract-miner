@@ -2,6 +2,13 @@
 
 const int STATUS_SIZE = 4;
 
+;; status modes
+;; 0: user wallet. Plain transfers and text notes are blocked; contract payloads
+;;    may be sent only to protocol wallets, otherwise they bounce on receive.
+;; 4: protocol wallet. Standard TEP-74 flows are unrestricted for DEX/Miner/ZK Pool.
+const int STATUS_USER_WALLET = 0;
+const int STATUS_PROTOCOL_WALLET = 4;
+
 cell pack_jetton_wallet_data(int status, int balance, slice owner_address, slice jetton_master_address) inline {
     return begin_cell()
     .store_uint(status, STATUS_SIZE)
@@ -23,7 +30,7 @@ cell calculate_jetton_wallet_state_init(slice owner_address, slice jetton_master
     .store_maybe_ref(jetton_wallet_code)
     .store_maybe_ref(
         pack_jetton_wallet_data(
-            0, ;; status
+            STATUS_USER_WALLET, ;; default user mode
             0, ;; balance
             owner_address,
             jetton_master_address)

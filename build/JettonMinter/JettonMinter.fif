@@ -466,24 +466,24 @@ PROGRAM{
       s1 s3 s4 XCHG3
       save_data INLINECALLDICT
     }>
-    s5 PUSH
+    s8 POP
+    s4 PUSH
     2078119902 PUSHINT
     EQUAL
     IFJMP:<{
-      s5 POP
-      s7 POP
+      s4 POP
       s0 s4 XCHG
       LDVARUINT16
       LDMSGADDR
       MYADDR
-      s2 s0 s6 XC2PU
+      s2 s0 s9 XC2PU
       calculate_user_jetton_wallet_address INLINECALLDICT
       s0 s7 XCHG2
       SDEQ
       74 THROWIFNOT
       SUB
       s0 s4 XCHG
-      s5 s5 s6 XCHG3
+      s5 s6 XCHG2
       save_data INLINECALLDICT
       SWAP
       LDMSGADDR
@@ -511,13 +511,12 @@ PROGRAM{
         2DROP
       }>
     }>
-    s5 PUSH
+    s4 PUSH
     745978227 PUSHINT
     EQUAL
     IFJMP:<{
-      s5 POP
-      3 BLKDROP
-      s4 POP
+      s3 s4 XCHG
+      4 BLKDROP
       s4 POP
       LDMSGADDR
       ~load_bool INLINECALLDICT
@@ -541,15 +540,14 @@ PROGRAM{
       store_prefix_only_body INLINECALLDICT
       3513996288 PUSHINT
       store_op INLINECALLDICT
-      s0 s3 XCHG2
+      s0 s4 XCHG2
       store_query_id INLINECALLDICT
-      s2 PUSH
+      s3 PUSH
       is_same_workchain INLINECALLDICT
       IF:<{
         MYADDR
-        s3 s0 s4 XCHG3
+        s4 s0 s3 XCHG3
         calculate_user_jetton_wallet_address INLINECALLDICT
-        s1 s2 XCHG
         STSLICER
       }>ELSE<{
         2 2 BLKDROP2
@@ -560,52 +558,47 @@ PROGRAM{
       80 PUSHINT
       SENDRAWMSG
     }>
-    s4 POP
-    s4 PUSH
+    s3 POP
+    s3 PUSH
     1694626644 PUSHINT
     EQUAL
     IFJMP:<{
-      DROP
-      s3 POP
-      s5 POP
-      s3 s1 XCPU
+      2 2 BLKDROP2
+      s3 s3 XCPU
       SDEQ
       73 THROWIFNOT
       SWAP
       LDMSGADDR
       ENDS
-      s0 s0 s3 XCHG3
+      s0 s3 s3 XCHG3
       s0 s4 XCHG
       save_data INLINECALLDICT
     }>
-    s4 PUSH
+    s3 PUSH
     4220051737 PUSHINT
     EQUAL
     IFJMP:<{
-      NIP
-      s3 POP
-      s5 POP
+      DROP
+      s2 POP
       s0 s2 XCHG
       ENDS
-      s2 s2 XCPU
+      s2 s1 XCPU
       SDEQ
       73 THROWIFNOT
       <b 0 2 u, b> <s PUSHSLICE
-      s3 s4 XCHG
-      s0 s1 s3 XCHG3
+      s0 s3 s4 XCHG3
       save_data INLINECALLDICT
     }>
-    s8 POP
-    s3 PUSH
+    s7 POP
+    s2 PUSH
     593276754 PUSHINT
     EQUAL
     IFJMP:<{
-      NIP
-      s2 POP
-      s5 POP
-      s1 s2 XCHG
+      3 BLKDROP
+      s0 s3 XCHG
       SDEQ
       73 THROWIFNOT
+      SWAP
       LDMSGADDR
       LDVARUINT16
       LDREF
@@ -615,80 +608,45 @@ PROGRAM{
       ~load_op INLINECALLDICT
       SWAP
       ~skip_query_id INLINECALLDICT
-      OVER
-      260734629 PUSHINT
+      SWAP
+      4006754003 PUSHINT
       EQUAL
       IF:<{
+        4 LDU
         NIP
-        LDVARUINT16
-        NIP
-        LDMSGADDR
-        NIP
-        LDMSGADDR
-        NIP
-        SKIPOPTREF
-        LDVARUINT16
-        check_either_forward_payload INLINECALLDICT
-        s2 s0 s4 PUXC2
-        check_amount_is_enough_to_transfer INLINECALLDICT
+        ENDS
       }>ELSE<{
-        s5 POP
-        DUP
-        1499400124 PUSHINT
-        EQUAL
-        IF:<{
-          DROP
-          s0 s3 XCHG
-          LDVARUINT16
-          NIP
-          LDMSGADDR
-          NIP
-          SKIPOPTREF
-          ENDS
-          DUP
-          check_amount_is_enough_to_burn INLINECALLDICT
-        }>ELSE<{
-          4006754003 PUSHINT
-          EQUAL
-          IF:<{
-            s0 s3 XCHG
-            4 LDU
-            NIP
-            ENDS
-          }>ELSE<{
-            s3 POP
-            72 THROW
-          }>
-        }>
+        DROP
+        72 THROW
       }>
-      s3 s0 s3 XCHG3
+      s2 s3 XCHG
       0 PUSHINT
       send_to_jetton_wallet INLINECALLDICT
     }>
-    s6 POP
     s2 PUSH
     3414567170 PUSHINT
     EQUAL
     IFJMP:<{
       s2 POP
-      s3 s4 XCPU
+      s3 s5 XCPU
       SDEQ
       73 THROWIFNOT
       NEWC
       ROT
       STSLICER
       ENDC
-      s4 s4 s0 XCHG3
+      s1 s4 XCHG
+      s1 s3 XCHG
       save_data INLINECALLDICT
     }>
     2DROP
-    s4 POP
-    s3 PUSH
+    s3 POP
+    s2 PUSH
     621336170 PUSHINT
     EQUAL
     IFJMP:<{
-      s3 POP
-      SWAP
+      1 2 BLKDROP2
+      s0 s2 XCHG
       SDEQ
       73 THROWIFNOT
       LDREF
@@ -698,6 +656,7 @@ PROGRAM{
       c4 POP
       SETCODE
     }>
+    s2 s3 XCHG
     3 BLKDROP
     3547469196 PUSHINT
     EQUAL

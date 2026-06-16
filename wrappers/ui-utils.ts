@@ -195,14 +195,10 @@ export const promptUserFriendlyAddress = async (prompt: string, provider: UIProv
 
 export const lockTypeToName = (lockType: LockType): string => {
     switch (lockType) {
-        case 'unlock':
-            return "Unlocked";
-        case 'out':
-            return "Can't send";
-        case 'in':
-            return "Can't receive";
-        case 'full':
-            return "Can't send and receive";
+        case 'user':
+            return "User wallet: plain transfers blocked";
+        case 'protocol':
+            return "Protocol wallet: standard transfers allowed";
         default:
             throw new Error("Invalid argument!");
     }

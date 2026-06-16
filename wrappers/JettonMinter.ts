@@ -29,20 +29,16 @@ export type JettonMinterConfigFull = {
     jetton_content: Cell | JettonMinterContent
 }
 
-export type LockType = 'unlock' | 'out' | 'in' | 'full';
+export type LockType = 'user' | 'protocol';
 
-export const LOCK_TYPES = ['unlock', 'out', 'in', 'full'];
+export const LOCK_TYPES = ['user', 'protocol'];
 
 export const lockTypeToInt = (lockType: LockType): number => {
     switch (lockType) {
-        case 'unlock':
+        case 'user':
             return 0;
-        case 'out':
-            return 1;
-        case 'in':
-            return 2;
-        case 'full':
-            return 3;
+        case 'protocol':
+            return 4;
         default:
             throw new Error("Invalid argument!");
     }
@@ -51,13 +47,9 @@ export const lockTypeToInt = (lockType: LockType): number => {
 export const intToLockType = (lockType: number): LockType => {
     switch (lockType) {
         case 0:
-            return 'unlock';
-        case 1:
-            return 'out';
-        case 2:
-            return 'in';
-        case 3:
-            return 'full';
+            return 'user';
+        case 4:
+            return 'protocol';
         default:
             throw new Error("Invalid argument!");
     }
@@ -129,7 +121,7 @@ export class JettonMinter implements Contract {
     }
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
-        await provider.internal(via, {
+        return await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell().storeUint(Op.top_up, 32).storeUint(0, 64).endCell(),
@@ -196,7 +188,7 @@ export class JettonMinter implements Contract {
                    response_addr?: Address | null,
                    customPayload?: Cell | null,
                    forward_ton_amount: bigint = toNano('0.05'), total_ton_amount: bigint = toNano('0.1')) {
-        await provider.internal(via, {
+        return await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: JettonMinter.mintMessage(to, jetton_amount, from, response_addr, customPayload, forward_ton_amount, total_ton_amount),
             value: total_ton_amount,
@@ -356,33 +348,11 @@ export class JettonMinter implements Contract {
     async sendLockWallet(provider: ContractProvider, via: Sender, lock_address: Address, lock: LockType, amount: bigint = toNano('0.1'), query_id: bigint | number = 0) {
         const lockCmd: number = lockTypeToInt(lock);
 
-        await provider.internal(via, {
+        return await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: JettonMinter.lockWalletMessage(lock_address, lockCmd, amount, query_id),
             value: amount + toNano('0.1')
         });
-    }
-
-    static forceTransferMessage(transfer_amount: bigint,
-                                to: Address,
-                                from: Address,
-                                custom_payload: Cell | null,
-                                forward_amount: bigint = 0n,
-                                forward_payload: Cell | null,
-                                value: bigint = toNano('0.1'),
-                                query_id: bigint = 0n) {
-
-        const transferMessage = JettonWallet.transferMessage(transfer_amount,
-            to,
-            to,
-            custom_payload,
-            forward_amount,
-            forward_payload);
-        return beginCell().storeUint(Op.call_to, 32).storeUint(query_id, 64)
-            .storeAddress(from)
-            .storeCoins(value)
-            .storeRef(transferMessage)
-            .endCell();
     }
 
     static parseTransfer(slice: Slice) {
@@ -405,71 +375,6 @@ export class JettonMinter implements Contract {
             forwardTonAmount,
             forwardPayload
         }
-    }
-
-    async sendForceTransfer(provider: ContractProvider,
-                            via: Sender,
-                            transfer_amount: bigint,
-                            to: Address,
-                            from: Address,
-                            custom_payload: Cell | null,
-                            forward_amount: bigint = 0n,
-                            forward_payload: Cell | null,
-                            value: bigint = toNano('0.1'),
-                            query_id: bigint = 0n) {
-        await provider.internal(via, {
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: JettonMinter.forceTransferMessage(transfer_amount,
-                to, from,
-                custom_payload,
-                forward_amount,
-                forward_payload,
-                value, query_id),
-            value: value + toNano('0.1')
-        });
-    }
-
-    static forceBurnMessage(burn_amount: bigint,
-                            to: Address,
-                            response: Address | null,
-                            value: bigint = toNano('0.1'),
-                            query_id: bigint | number = 0) {
-
-        return beginCell().storeUint(Op.call_to, 32).storeUint(query_id, 64)
-            .storeAddress(to)
-            .storeCoins(value)
-            .storeRef(JettonWallet.burnMessage(burn_amount, response, null))
-            .endCell()
-    }
-
-    static parseBurn(slice: Slice) {
-        const op = slice.loadUint(32);
-        if (op !== Op.burn) throw new Error('Invalid op');
-        const queryId = slice.loadUint(64);
-        const jettonAmount = slice.loadCoins();
-        const responseAddress = slice.loadAddress();
-        const customPayload = slice.loadMaybeRef();
-        endParse(slice);
-        return {
-            queryId,
-            jettonAmount,
-            responseAddress,
-            customPayload,
-        }
-    }
-    async sendForceBurn(provider: ContractProvider,
-                        via: Sender,
-                        burn_amount: bigint,
-                        address: Address,
-                        response: Address | null,
-                        value: bigint = toNano('0.1'),
-                        query_id: bigint | number = 0) {
-
-        await provider.internal(via, {
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: JettonMinter.forceBurnMessage(burn_amount, address, response, value, query_id),
-            value: value + toNano('0.1')
-        });
     }
 
     static upgradeMessage(new_code: Cell, new_data: Cell, query_id: bigint | number = 0) {

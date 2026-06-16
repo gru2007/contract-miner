@@ -35,6 +35,8 @@ PROGRAM{
   DECLPROC check_amount_is_enough_to_burn
   DECLPROC load_data
   DECLPROC save_data
+  DECLPROC send_policy_note
+  DECLPROC is_contract_payload
   DECLPROC send_jettons
   DECLPROC receive_jettons
   DECLPROC burn_jettons
@@ -312,6 +314,51 @@ PROGRAM{
     pack_jetton_wallet_data INLINECALLDICT
     c4 POP
   }>
+  send_policy_note PROCREF:<{
+    0 PUSHINT
+    NEWC
+    32 STU
+    x{5a4b47524d3a207472616e7366657220626c6f636b65642e2055736520617070726f766564204445582f70726f746f636f6c20666c6f772e} PUSHSLICE
+    STSLICER
+    ENDC
+    NEWC
+    16 PUSHINT
+    store_msg_flags_and_address_none INLINECALLDICT
+    ROT
+    STSLICER
+    0 PUSHINT
+    STVARUINT16
+    SWAP
+    store_only_body_ref INLINECALLDICT
+    ENDC
+    66 PUSHINT
+    SENDRAWMSG
+  }>
+  is_contract_payload PROCINLINE:<{
+    0 EQINT
+    IF:<{
+      DROP
+      0 PUSHINT
+    }>ELSE<{
+      1 LDU
+      SWAP
+      IF:<{
+        LDREF
+        DROP
+        CTOS
+      }>
+      DUP
+      SBITREFS
+      DROP
+      32 LESSINT
+      IFJMP:<{
+        DROP
+        0 PUSHINT
+      }>
+      32 PLDU
+      0 NEQINT
+    }>
+  }>
   send_jettons PROCREF:<{
     s0 s3 XCHG
     ~load_query_id INLINECALLDICT
@@ -324,33 +371,38 @@ PROGRAM{
     s0 s9 PUSH2
     SDEQ
     s4 PUSH
-    1 PUSHINT
-    AND
-    0 EQINT
+    4 EQINT
+    s3 s11 PUXC
+    SDEQ
     OVER
     OR
-    45 THROWIFNOT
-    s2 s10 PUXC
-    SDEQ
-    s0 s10 XCHG2
-    OR
     73 THROWIFNOT
-    s1 s5 XCPU
+    s3 s7 XCPU
     SUB
     DUP
     -1 GTINT
     47 THROWIFNOT
     MYCODE
-    s5 s9 s(-1) XCPUXC
+    s7 s2 s(-1) XCPUXC
     calculate_jetton_wallet_state_init INLINECALLDICT
     DUP
     calculate_jetton_wallet_address INLINECALLDICT
-    s0 s4 XCHG
+    s0 s6 XCHG
     LDMSGADDR
     SKIPOPTREF
     LDVARUINT16
     DUP
     check_either_forward_payload INLINECALLDICT
+    s13 s6 XCHG2
+    OR
+    s5 s12 PUSH2
+    is_contract_payload INLINECALLDICT
+    OR
+    IFNOTJMP:<{
+      s3 s12 XCHG
+      12 BLKDROP
+      send_policy_note INLINECALLDICT
+    }>
     NEWC
     395134233 PUSHINT
     store_op INLINECALLDICT
@@ -358,13 +410,13 @@ PROGRAM{
     store_query_id INLINECALLDICT
     s0 s8 XCHG2
     STVARUINT16
-    s3 PUSH
+    s2 PUSH
     STSLICER
-    SWAP
+    s0 s8 XCHG2
     STSLICER
-    s6 PUSH
+    s9 PUSH
     STVARUINT16
-    s0 s7 XCHG2
+    ROT
     STSLICER
     ENDC
     NEWC
@@ -374,24 +426,19 @@ PROGRAM{
     STSLICER
     0 PUSHINT
     STVARUINT16
-    s0 s6 s3 XCHG3
+    s0 s5 s3 XCHG3
     store_statinit_ref_and_body_ref INLINECALLDICT
     ENDC
-    s5 s3 s7 XCHG3
+    s5 s6 s7 XCHG3
     check_amount_is_enough_to_transfer INLINECALLDICT
     s0 s4 XCHG
     80 PUSHINT
     SENDRAWMSG
-    ROT
+    s1 s3 s0 XCHG3
     save_data INLINECALLDICT
   }>
   receive_jettons PROCREF:<{
     load_data INLINECALLDICT
-    s3 PUSH
-    2 PUSHINT
-    AND
-    2 EQINT
-    45 THROWIF
     s0 s7 XCHG
     ~load_query_id INLINECALLDICT
     SWAP
@@ -406,14 +453,23 @@ PROGRAM{
     MYCODE
     s4 s13 s(-2) PU2XC
     calculate_user_jetton_wallet_address INLINECALLDICT
-    s0 s12 XCHG2
+    s12 PUSH
     SDEQ
-    s1 s11 XCHG
     OR
     74 THROWIFNOT
-    s0 s9 XCHG
     LDVARUINT16
-    OVER
+    s12 s11 PUXC
+    SDEQ
+    s8 PUSH
+    4 EQINT
+    s2 PUSH
+    0 EQINT
+    SWAP
+    OR
+    SWAP
+    OR
+    45 THROWIFNOT
+    DUP
     IF:<{
       NEWC
       1935855772 PUSHINT
@@ -424,7 +480,7 @@ PROGRAM{
       STVARUINT16
       ROT
       STSLICER
-      ROT
+      s0 s9 XCHG2
       STSLICER
       ENDC
       NEWC
@@ -440,7 +496,9 @@ PROGRAM{
       17 PUSHINT
       SENDRAWMSG
     }>ELSE<{
-      4 BLKDROP
+      DROP
+      s9 POP
+      2DROP
     }>
     s6 PUSH
     is_address_none INLINECALLDICT
@@ -607,6 +665,12 @@ PROGRAM{
       s4 s2 XCPU
       SDEQ
       74 THROWIFNOT
+      s2 PUSH
+      0 EQINT
+      s3 PUSH
+      4 EQINT
+      OR
+      49 THROWIFNOT
       s0 s3 s3 XCHG3
       save_data INLINECALLDICT
     }>
