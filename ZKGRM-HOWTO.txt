@@ -8,10 +8,12 @@ for now only extra small givers are avaliable - we will add more when will be re
 
 EQCezJpvSdE6buylaR9P0zkAJeCQtMmPqV0_kcd-4czGn5N8
 
+I'll add more a litte bit later. I need to do more marketing...
 
 ---
 
-About ZK-Privacy. It will work throw https://zk.resistance.dog when multi-party trusted-setup ceremony will over
+About ZK-Privacy. It will work throw https://zk.resistance.dog when multi-party trusted-setup ceremony will over.
+Right now there a test pools.
 
 ---
 
