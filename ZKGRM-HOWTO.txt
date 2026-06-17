@@ -6,9 +6,13 @@ We support new way of mining and old one. Docs will appear later.
 
 for now only extra small givers are avaliable - we will add more when will be ready:
 
-PLACEHOLDER
+EQCezJpvSdE6buylaR9P0zkAJeCQtMmPqV0_kcd-4czGn5N8
 
 
 ---
 
 About ZK-Privacy. It will work throw https://zk.resistance.dog when multi-party trusted-setup ceremony will over
+
+---
+
+DEX is already avaliable. I have changed type of Ston.Fi jetton wallet. Creating new Pools may be limited.
