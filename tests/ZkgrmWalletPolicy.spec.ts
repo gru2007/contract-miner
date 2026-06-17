@@ -221,6 +221,28 @@ describe('ZKGRM wallet policy', () => {
         expect(await freshPoolWallet.getJettonBalance()).toEqual(10n);
     });
 
+    it('deploys an uninitialized protocol wallet from set_status value without pre-funded minter balance', async () => {
+        const lowBalanceMinter = blockchain.openContract(
+            JettonMinter.createFromConfig(
+                {
+                    admin: admin.address,
+                    wallet_code: walletCode,
+                    jetton_content: jettonContentToCell({ uri: 'https://zkgrm.example/meta.json' }),
+                },
+                minterCode,
+            ),
+        );
+        const freshPool = await blockchain.treasury('freshPoolLowBalance');
+        const freshPoolWallet = blockchain.openContract(
+            JettonWallet.createFromAddress(await lowBalanceMinter.getWalletAddress(freshPool.address)),
+        );
+
+        await lowBalanceMinter.sendDeploy(admin.getSender(), toNano('0.05'));
+        await lowBalanceMinter.sendLockWallet(admin.getSender(), freshPool.address, 'protocol');
+
+        expect(await freshPoolWallet.getWalletStatus()).toEqual(4);
+    });
+
     it('handles pool withdraw to regular user wallets without forward notification', async () => {
         await jettonMinter.sendLockWallet(admin.getSender(), protocolOwner.address, 'protocol');
 
