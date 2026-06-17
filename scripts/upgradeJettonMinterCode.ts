@@ -1,6 +1,6 @@
 import { compile, NetworkProvider } from '@ton/blueprint';
-import { jettonMinterConfigToCell } from '../wrappers/JettonMinter';
-import { jettonWalletCodeFromLibrary, promptBool, promptUrl, promptUserFriendlyAddress } from '../wrappers/ui-utils';
+import { Cell } from '@ton/core';
+import { jettonWalletCodeFromLibrary, promptBool, promptUserFriendlyAddress } from '../wrappers/ui-utils';
 import { checkJettonMinter } from './JettonMinterChecker';
 
 export async function run(provider: NetworkProvider) {
@@ -8,14 +8,13 @@ export async function run(provider: NetworkProvider) {
     const ui = provider.ui();
 
     ui.write('Warning: in the latest ZKGRM wallet-policy concept, upgrade paths may be intentionally disabled in contract code.');
-    ui.write('Use this only if your deployed JettonMinter still supports Op.upgrade.');
+    ui.write('Use this only if your deployed JettonMinter still supports Op.upgrade_code.');
 
     const jettonMinterCodeRaw = await compile('JettonMinter');
     const jettonWalletCodeRaw = await compile('JettonWallet');
     const jettonWalletCode = jettonWalletCodeFromLibrary(jettonWalletCodeRaw);
 
     const jettonMinterAddress = await promptUserFriendlyAddress('Enter the address of the jetton minter', ui, isTestnet);
-    const jettonMetadataUri = await promptUrl('Enter new jetton metadata uri', ui);
 
     const { jettonMinterContract, adminAddress } = await checkJettonMinter(
         jettonMinterAddress,
@@ -39,11 +38,7 @@ export async function run(provider: NetworkProvider) {
     await jettonMinterContract.sendUpgradeCode(
         provider.sender(),
         jettonMinterCodeRaw,
-        jettonMinterConfigToCell({
-            admin: adminAddress,
-            wallet_code: jettonWalletCode,
-            jetton_content: { uri: jettonMetadataUri },
-        }),
+        new Cell(),
     );
 
     ui.write('Upgrade transaction sent');

@@ -17,7 +17,7 @@ export async function run(provider: NetworkProvider) {
     ui.write('Browser miner / Браузерный майнер: use easier difficulty, small reward, small cap. Good for regular users, but not GPU-proof.');
     ui.write('GPU miner / Майнер для видеокарты: use harder difficulty, bigger cap/reward, and expect browser users to lose often.');
     ui.write('Fair launch tip / Совет для честного запуска: deploy separate browser givers with low cap and low reward, then separate GPU givers.');
-    ui.write('decimals=6 on the current minter metadata: 1 token = 1_000_000 base units. / decimals=6: 1 токен = 1_000_000 base units.');
+    ui.write('decimals=9 on the current minter metadata: 1 token = 1_000_000_000 base units. / decimals=9: 1 токен = 1_000_000_000 base units.');
 
     const seed = await promptUint('Enter initial seed uint128', ui, 128, 0x95b9ba60cd32d91a3255029230f8584fn);
     const powComplexity = await promptUint('Enter initial pow_complexity uint256; bigger = easier / больше = легче', ui, 256, 1n << 248n);

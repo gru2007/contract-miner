@@ -466,7 +466,7 @@ export class JettonMinter implements Contract {
     async sendUpgradeCode(provider: ContractProvider, via: Sender, new_code: Cell, new_data: Cell, value: bigint = toNano('0.1'), query_id: bigint | number = 0) {
         await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: JettonMinter.upgradeMessage(new_code, new_data, query_id),
+            body: JettonMinter.upgradeMessageCode(new_code, new_data, query_id),
             value
         });
     }
