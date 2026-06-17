@@ -820,7 +820,7 @@ PROGRAM{
     ROT
     ~set_token_snake_metadata_entry CALLDICT
     107878361799212983662495570378745491379550006934010968359181619763835345146430 PUSHINT
-    x{39} PUSHSLICE
+    x{36} PUSHSLICE
     ~set_token_snake_metadata_entry CALLDICT
     create_token_onchain_metadata INLINECALLDICT
   }>
