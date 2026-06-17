@@ -22,7 +22,7 @@ export async function run(provider: NetworkProvider) {
 
     const recipientAddress = await promptUserFriendlyAddress('Enter recipient address', ui, isTestnet);
     const amount = await promptToncoin('Enter TON amount to withdraw', ui);
-    const gasValue = toNano('0.05');
+    const gasValue = toNano('0.01');
     const queryId = BigInt(Date.now());
 
     if (amount + gasValue > balance) {
