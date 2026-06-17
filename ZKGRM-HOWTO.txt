@@ -7,6 +7,7 @@ We support new way of mining and old one. Docs will appear later.
 for now only extra small givers are avaliable - we will add more when will be ready:
 
 EQCezJpvSdE6buylaR9P0zkAJeCQtMmPqV0_kcd-4czGn5N8
+EQAAbor-CQ7lutMjQo0XUH4f5ICpnNrfpqm3jSKYQrgGMxWa
 
 I'll add more a litte bit later. I need to do more marketing...
 
