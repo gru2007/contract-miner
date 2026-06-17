@@ -144,6 +144,17 @@ describe('Miner', () => {
         expect(await userJettonWallet.getJettonBalance()).toEqual(100_000_000n);
     });
 
+    it('keeps a TON fee on successful mining', async () => {
+        await jettonMinter.sendSetPowMinter(admin.getSender(), miner.address, true, 1_000_000_000n);
+
+        const beforeBalance = (await blockchain.getContract(miner.address)).balance;
+        const pow = await miner.getPowParams();
+        await miner.sendMine(minerUser.getSender(), toNano('1.2'), findMineParams(pow.seed, pow.powComplexity, BigInt(blockchain.now! + 300), minerUser));
+        const afterBalance = (await blockchain.getContract(miner.address)).balance;
+
+        expect(afterBalance).toBeGreaterThan(beforeBalance + toNano('0.11'));
+    });
+
     it('keeps legacy get_pow_params and exposes UI getters', async () => {
         const pow = await miner.getPowParams();
         const reward = await miner.getRewardAmount();

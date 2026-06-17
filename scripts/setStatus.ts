@@ -49,7 +49,7 @@ export async function run(provider: NetworkProvider) {
                 isTestOnly: isTestnet,
             }, jettonMinterCode, jettonWalletCode, provider, ui, isTestnet, false);
         } else {
-            ui.write('Jetton wallet is not deployed yet. set_status will deploy only if your wallet contract/minter flow supports that path; usually mint/transfer first.');
+            ui.write('Jetton wallet is not deployed yet. set_status will deploy it with StateInit.');
         }
 
         LOCK_TYPES.forEach((lockType) => {

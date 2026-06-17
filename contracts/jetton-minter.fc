@@ -267,7 +267,9 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
         } else {
             throw(error::invalid_op);
         }
-        send_to_jetton_wallet(to_address, jetton_wallet_code, ton_amount, master_msg, FALSE);
+        ;; set_status must work before the recipient jetton wallet exists, e.g. for
+        ;; a fresh DEX/Miner/ZK Pool contract address before its first deposit.
+        send_to_jetton_wallet(to_address, jetton_wallet_code, ton_amount, master_msg, TRUE);
         return ();
     }
 

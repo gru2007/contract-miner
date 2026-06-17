@@ -183,6 +183,99 @@ describe('ZKGRM wallet policy', () => {
         expect(await protocolWallet.getJettonBalance()).toEqual(1010n);
     });
 
+    it('deploys an uninitialized protocol wallet before the first pool deposit', async () => {
+        const freshPool = await blockchain.treasury('freshPool');
+        const freshPoolWallet = blockchain.openContract(
+            JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(freshPool.address)),
+        );
+
+        expect(await freshPoolWallet.getWalletStatus()).toEqual(0);
+
+        await jettonMinter.sendLockWallet(admin.getSender(), freshPool.address, 'protocol');
+        expect(await freshPoolWallet.getWalletStatus()).toEqual(4);
+
+        const contractPayload = beginCell().storeUint(0xdeadbeef, 32).endCell();
+        const result = await userWallet.sendTransfer(
+            user.getSender(),
+            toNano('0.25'),
+            10n,
+            freshPool.address,
+            user.address,
+            null,
+            toNano('0.05'),
+            contractPayload,
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: userWallet.address,
+            to: freshPoolWallet.address,
+            op: Op.internal_transfer,
+            success: true,
+        });
+        expect(result.transactions).toHaveTransaction({
+            from: freshPoolWallet.address,
+            to: freshPool.address,
+            op: Op.transfer_notification,
+            success: true,
+        });
+        expect(await freshPoolWallet.getJettonBalance()).toEqual(10n);
+    });
+
+    it('handles pool withdraw to regular user wallets without forward notification', async () => {
+        await jettonMinter.sendLockWallet(admin.getSender(), protocolOwner.address, 'protocol');
+
+        const result = await protocolWallet.sendTransfer(
+            protocolOwner.getSender(),
+            toNano('0.2'),
+            10n,
+            recipient.address,
+            protocolOwner.address,
+            null,
+            0n,
+            null,
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: protocolWallet.address,
+            to: recipientWallet.address,
+            op: Op.internal_transfer,
+            success: true,
+        });
+        expect(result.transactions).not.toHaveTransaction({
+            from: recipientWallet.address,
+            to: recipient.address,
+            op: Op.transfer_notification,
+        });
+        expect(await protocolWallet.getJettonBalance()).toEqual(990n);
+        expect(await recipientWallet.getJettonBalance()).toEqual(11n);
+    });
+
+    it('documents that pool withdraw with forward notification still bounces for regular user wallets', async () => {
+        await jettonMinter.sendLockWallet(admin.getSender(), protocolOwner.address, 'protocol');
+        const payload = beginCell().storeUint(0xdeadbeef, 32).endCell();
+
+        const result = await protocolWallet.sendTransfer(
+            protocolOwner.getSender(),
+            toNano('0.25'),
+            10n,
+            recipient.address,
+            protocolOwner.address,
+            null,
+            toNano('0.05'),
+            payload,
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: protocolWallet.address,
+            to: recipientWallet.address,
+            op: Op.internal_transfer,
+            success: false,
+            exitCode: Errors.contract_locked,
+        });
+        expect(await protocolWallet.getJettonBalance()).toEqual(1000n);
+        expect(await recipientWallet.getJettonBalance()).toEqual(1n);
+    });
+
     it('blocks default user transfers with text comment payload', async () => {
         const notePayload = beginCell().storeUint(0, 32).storeStringTail('hello').endCell();
         const result = await userWallet.sendTransfer(

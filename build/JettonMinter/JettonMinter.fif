@@ -747,7 +747,7 @@ PROGRAM{
         72 THROW
       }>
       s2 s3 XCHG
-      0 PUSHINT
+      -1 PUSHINT
       send_to_jetton_wallet INLINECALLDICT
     }>
     s4 PUSH
