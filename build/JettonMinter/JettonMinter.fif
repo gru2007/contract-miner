@@ -412,7 +412,7 @@ PROGRAM{
       store_only_body_ref INLINECALLDICT
     }>
     ENDC
-    17 PUSHINT
+    16 PUSHINT
     SENDRAWMSG
   }>
   send_tons PROC:<{
