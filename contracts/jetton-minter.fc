@@ -84,7 +84,7 @@ cell set_pow_minter_data(cell pow_minters, slice address, int cap, int mined) in
         msg = msg.store_only_body_ref(master_msg);
     }
 
-    send_raw_message(msg.end_cell(), SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+    send_raw_message(msg.end_cell(), SEND_MODE_BOUNCE_ON_ACTION_FAIL);
 }
 
 

@@ -126,8 +126,11 @@ describe('Miner', () => {
         await jettonMinter.sendSetPowMinter(admin.getSender(), miner.address, true, 1_000_000_000n);
         expect(await jettonMinter.getPowMinterEnabled(miner.address)).toBe(true);
 
+        const minterBalanceBefore = (await blockchain.getContract(jettonMinter.address)).balance;
         const pow = await miner.getPowParams();
         const mineResult = await miner.sendMine(minerUser.getSender(), toNano('1.2'), findMineParams(pow.seed, pow.powComplexity, BigInt(blockchain.now! + 300), minerUser));
+
+        expect((await blockchain.getContract(jettonMinter.address)).balance).toBeGreaterThanOrEqual(minterBalanceBefore);
 
         expect(mineResult.transactions).toHaveTransaction({
             from: miner.address,
